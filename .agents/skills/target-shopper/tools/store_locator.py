@@ -12,11 +12,12 @@ import re
 def get_store_by_id(store_id: str, headless: bool = True) -> Optional[Dict[str, str]]:
     """
     Get store info by directly accessing the store page.
+    This is the most reliable method when you know the store ID.
     """
     store_url = f"https://www.target.com/sl/store-{store_id}/{store_id}"
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = p.webkit.launch(headless=headless)
         page = browser.new_page()
         
         try:
@@ -48,40 +49,60 @@ def search_stores(store_name: str, headless: bool = True) -> List[Dict[str, str]
     stores = []
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = p.webkit.launch(headless=headless)
         page = browser.new_page()
         
         try:
             page.goto("https://www.target.com/store-locator", timeout=30000, wait_until='domcontentloaded')
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(3000)
             
-            try:
-                search_input = page.locator('input[placeholder*="Store"], input[placeholder*="ZIP"], input[placeholder*="City"]').first
-                search_input.fill(store_name)
-                page.wait_for_timeout(500)
-                search_input.press('Enter')
-                page.wait_for_timeout(3000)
-            except Exception as e:
-                print(f"Search input error: {e}")
+            store_buttons = page.locator('button[aria-label*="Store:"]').all()
             
-            store_cards = page.locator('[data-test*="store"], [class*="store-result"]').all()
-            
-            for card in store_cards:
+            if store_buttons:
+                store_buttons[0].click()
+                page.wait_for_timeout(2000)
+                
                 try:
-                    link = card.locator('a[href*="/sl/"]').first
-                    href = link.get_attribute('href')
-                    name = card.inner_text().strip()[:100]
+                    modal = page.locator('[role="dialog"]').first
+                    modal.wait_for(timeout=5000)
                     
-                    if href:
-                        store_id = extract_store_id(href)
-                        if store_id:
-                            stores.append({
-                                'name': name or f"Store {store_id}",
-                                'url': href if href.startswith('http') else f"https://www.target.com{href}",
-                                'store_id': store_id
-                            })
+                    search_input = modal.locator('input[name="zip-code-city-or-state"]').first
+                    search_input.fill(store_name)
+                    page.wait_for_timeout(500)
+                    search_input.press('Enter')
+                    page.wait_for_timeout(5000)
+                    
+                    store_results = modal.locator('[data-test="store-result-card"]').all()
+                    
+                    for card in store_results:
+                        try:
+                            link = card.locator('a[href*="/sl/"]').first
+                            href = link.get_attribute('href')
+                            name_elem = card.locator('[data-test="store-name"]')
+                            if name_elem.count() > 0:
+                                name = name_elem.first.inner_text().strip()
+                            else:
+                                full_text = card.inner_text()
+                                lines = [l.strip() for l in full_text.split('\n') if l.strip()]
+                                name = lines[0] if lines else ''
+                            name = ' '.join(name.split())
+                            for bad in ['store details', 'Details', 'details', 'Details store details']:
+                                name = name.replace(bad, '')
+                            name = name.strip()[:60]
+                            
+                            if href:
+                                store_id = extract_store_id(href)
+                                if store_id:
+                                    stores.append({
+                                        'name': name or f"Store {store_id}",
+                                        'url': href if href.startswith('http') else f"https://www.target.com{href}",
+                                        'store_id': store_id
+                                    })
+                        except Exception:
+                            continue
+                            
                 except Exception:
-                    continue
+                    pass
             
             if not stores:
                 links = page.locator('a[href*="/sl/"]').all()
