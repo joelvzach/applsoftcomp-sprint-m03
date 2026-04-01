@@ -9,7 +9,6 @@ AI assistant that helps users find the shortest path to collect grocery items fr
 
 ```
 .agents/skills/target-shopper/
-  PRD.md                 (this file)
   SKILL.md               (agent workflow instructions)
   README.md              (user guide - copied to project/)
   tools/
@@ -27,6 +26,7 @@ AI assistant that helps users find the shortest path to collect grocery items fr
     progress.txt         (item search tracking)
 
 project/
+  PRD.md                 (this file)
   list.md                (user's shopping list)
   preferences.md         (saved preferences: store, items, special requests)
   output/
