@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 import os
 
-from tools.item_search import search_item
+from item_search import search_item
 
 
 def write_progress(item: str, status: str, aisle: str = None, progress_path: str = None):

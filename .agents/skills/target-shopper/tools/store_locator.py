@@ -70,38 +70,100 @@ def search_stores(store_name: str, headless: bool = True) -> List[Dict[str, str]
                     search_input.fill(store_name)
                     page.wait_for_timeout(500)
                     search_input.press('Enter')
-                    page.wait_for_timeout(5000)
+                    page.wait_for_timeout(8000)
                     
-                    store_results = modal.locator('[data-test="store-result-card"]').all()
+                    # Use JavaScript to extract store data properly
+                    stores = page.evaluate(f'''() => {{
+                        const results = [];
+                        const searchLower = '{store_name.lower()}';
+                        
+                        // Find all "More info" links and extract store data from parent
+                        const moreInfoLinks = document.querySelectorAll('a');
+                        
+                        moreInfoLinks.forEach(link => {{
+                            if (!link.innerText.toLowerCase().includes('more info')) return;
+                            
+                            const href = link.href;
+                            const storeIdMatch = href.match(/\\/sl\\/[^\\/]+\\/(\\d+)/);
+                            if (!storeIdMatch) return;
+                            
+                            // Find parent container with store info
+                            let parent = link.parentElement;
+                            let cardText = '';
+                            let depth = 0;
+                            
+                            while (parent && depth < 10) {{
+                                const text = parent.innerText || '';
+                                if (text.includes('miles') && text.length > 50 && text.length < 500) {{
+                                    cardText = text;
+                                    break;
+                                }}
+                                parent = parent.parentElement;
+                                depth++;
+                            }}
+                            
+                            if (!cardText) return;
+                            
+                            // Extract store name (first line of card text)
+                            const lines = cardText.split('\\n').map(l => l.trim()).filter(l => l);
+                            let name = '';
+                            
+                            for (const line of lines) {{
+                                if (line.length > 2 && line.length < 80 && 
+                                    !line.toLowerCase().includes('skip') &&
+                                    !line.toLowerCase().includes('ship to') &&
+                                    !line.includes('miles')) {{
+                                    name = line;
+                                    break;
+                                }}
+                            }}
+                            
+                            if (name && name.length > 2) {{
+                                results.push({{
+                                    name: name,
+                                    url: href,
+                                    store_id: storeIdMatch[1],
+                                    fullText: cardText.substring(0, 200)
+                                }});
+                            }}
+                        }});
+                        
+                        // Deduplicate by store ID
+                        const seen = new Set();
+                        const unique = results.filter(s => {{
+                            if (seen.has(s.store_id)) return false;
+                            seen.add(s.store_id);
+                            return true;
+                        }});
+                        
+                        // Filter by search term if specified
+                        if (searchLower && unique.length > 0) {{
+                            const filtered = unique.filter(s => 
+                                searchLower.split(' ').every(term => 
+                                    term.length > 2 && (s.name.toLowerCase().includes(term) || s.fullText.toLowerCase().includes(term))
+                                )
+                            );
+                            if (filtered.length > 0) return filtered;
+                        }}
+                        
+                        return unique.slice(0, 10);
+                    }}''')
                     
-                    for card in store_results:
-                        try:
-                            link = card.locator('a[href*="/sl/"]').first
-                            href = link.get_attribute('href')
-                            name_elem = card.locator('[data-test="store-name"]')
-                            if name_elem.count() > 0:
-                                name = name_elem.first.inner_text().strip()
-                            else:
-                                full_text = card.inner_text()
-                                lines = [l.strip() for l in full_text.split('\n') if l.strip()]
-                                name = lines[0] if lines else ''
-                            name = ' '.join(name.split())
-                            for bad in ['store details', 'Details', 'details', 'Details store details']:
-                                name = name.replace(bad, '')
-                            name = name.strip()[:60]
+                    # Deduplicate by store ID (already done in JS, but double-check)
+                    seen_ids = set()
+                    deduped = []
+                    for store_data in stores:
+                        store_id = store_data.get('store_id')
+                        if store_id and store_id not in seen_ids:
+                            seen_ids.add(store_id)
+                            deduped.append({
+                                'name': store_data['name'],
+                                'url': store_data['url'],
+                                'store_id': store_id
+                            })
+                    stores = deduped
                             
-                            if href:
-                                store_id = extract_store_id(href)
-                                if store_id:
-                                    stores.append({
-                                        'name': name or f"Store {store_id}",
-                                        'url': href if href.startswith('http') else f"https://www.target.com{href}",
-                                        'store_id': store_id
-                                    })
-                        except Exception:
-                            continue
-                            
-                except Exception:
+                except Exception as e:
                     pass
             
             if not stores:
