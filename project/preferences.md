@@ -1,7 +1,23 @@
 # User Preferences
 
 ## Store Location
-- Default store: Tulsa Hills , Tulsa, OK (ID: 2357)
+- Default store: Portland East Washington Street (ID: 1419)
+- Store URL: https://www.target.com/sl/portland-east-washington-street/1419
+- Store URL: https://www.target.com/sl/portland-east-washington-street/1419
+- Store URL: https://www.target.com/sl/eatontown-plaza/3432
+- Store URL: https://www.target.com/sl/eatontown-plaza/3432
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
+- Store URL: https://www.target.com/sl/binghamton-vestal/1056
 - Store URL: https://www.target.com/sl/store-2357/2357
 - Store URL: https://www.target.com/sl/north-haven/1916
 - Store URL: https://www.target.com/sl/broken-arrow/2422

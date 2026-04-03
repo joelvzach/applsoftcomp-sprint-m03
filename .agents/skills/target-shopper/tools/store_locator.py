@@ -214,6 +214,8 @@ def find_store(store_name: str, headless: bool = True, auto_select: bool = False
     Find a Target store by name or ID.
     If multiple matches, prompt user to select (or auto-select first if auto_select=True).
     Returns selected store info or None if not found.
+    
+    Strategy: Try exact search first, then fall back to city-only search if zip code fails.
     """
     if store_name.isdigit() and len(store_name) >= 3:
         store = get_store_by_id(store_name, headless)
@@ -223,7 +225,19 @@ def find_store(store_name: str, headless: bool = True, auto_select: bool = False
                 save_store_preference(store)
             return store
     
+    # Try original search first
     stores = search_stores(store_name, headless)
+    
+    # If search term contains space (like "Portland 9800"), also try city-only search
+    # and use whichever returns more relevant results
+    if ' ' in store_name:
+        city_name = store_name.split()[0]
+        city_stores = search_stores(city_name, headless)
+        
+        # Use city-only results if they exist and original search had 0 or many generic results
+        if city_stores and (not stores or (len(stores) >= 10 and len(city_stores) < 10)):
+            print(f"Using city-only search: '{city_name}' ({len(city_stores)} stores)")
+            stores = city_stores
     
     if not stores:
         print(f"No stores found for '{store_name}'")
@@ -236,11 +250,32 @@ def find_store(store_name: str, headless: bool = True, auto_select: bool = False
             save_store_preference(stores[0])
         return stores[0]
     
+    # Find most common city/location from store names
+    city_counts = {}
+    for store in stores:
+        # Extract city from store name (usually first word or before parentheses)
+        name = store['name']
+        city = name.split('(')[0].split(',')[0].strip().split()[0]
+        city_counts[city] = city_counts.get(city, 0) + 1
+    
+    # Find the city with most stores
+    most_common_city = max(city_counts.keys(), key=lambda c: city_counts[c])
+    most_common_count = city_counts[most_common_city]
+    
     print(f"Found {len(stores)} stores matching '{store_name}':")
     for i, store in enumerate(stores, 1):
         print(f"  {i}. {store['name']} (ID: {store['store_id']})")
     
     if auto_select:
+        # Select first store from most common city
+        for store in stores:
+            if most_common_city in store['name']:
+                print(f"Auto-selecting {most_common_city} store: {store['name']}")
+                if save_preference:
+                    save_store_preference(store)
+                return store
+        
+        # Fallback to first store
         print(f"Auto-selecting first store: {stores[0]['name']}")
         if save_preference:
             save_store_preference(stores[0])

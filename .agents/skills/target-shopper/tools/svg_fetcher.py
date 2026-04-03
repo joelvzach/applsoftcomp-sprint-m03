@@ -1,17 +1,100 @@
 #!/usr/bin/env python3
 """
 Store Map SVG Fetcher - Extract SVG store map via Playwright browser automation.
+Supports multi-floor stores with escalator/elevator connections.
 """
 
 from playwright.sync_api import sync_playwright
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import re
+
+
+def detect_floor_selector(page) -> Optional[str]:
+    """
+    Detect if store has multiple floors and return selector for floor buttons.
+    Returns selector pattern or None if single floor.
+    """
+    # Check for floor selector buttons
+    floor_patterns = [
+        'button[aria-label*="Floor"]',
+        'button[aria-label*="Level"]',
+        '[data-floor]',
+        '.floor-selector button',
+        '.floor-tabs button',
+    ]
+    
+    for pattern in floor_patterns:
+        buttons = page.locator(pattern)
+        if buttons.count() > 1:
+            return pattern
+    
+    # Check for text indicating multiple floors
+    floor_text = page.evaluate(r'''() => {
+        const text = document.body.innerText;
+        const floorMatches = text.match(/Floor\s*\d+|Level\s*\d+/gi);
+        return floorMatches ? [...new Set(floorMatches)] : [];
+    }''')
+    
+    if floor_text and len(floor_text) > 1:
+        return 'text'  # Special handling for text-based floor indicators
+    
+    return None
+
+
+def extract_floor_data(svg_content: str, floor_num: int = 1) -> Dict:
+    """
+    Extract aisle and special location data from SVG content.
+    """
+    # Extract aisle labels from SVG text elements
+    aisles = []
+    aisle_markers = []
+    
+    # Match text elements with aisle labels
+    text_matches = re.findall(r'<text[^>]*x="([\d.-]+)"[^>]*y="([\d.-]+)"[^>]*>([A-Z]{1,2}\d{1,3}|CL\d{1,2})</text>', svg_content)
+    
+    for x, y, aisle in text_matches:
+        if aisle not in aisles:
+            aisles.append(aisle)
+        try:
+            aisle_markers.append({
+                'aisle': aisle,
+                'x': float(x),
+                'y': float(y)
+            })
+        except ValueError:
+            pass
+    
+    # Extract special locations (entrance, checkout, escalator, elevator)
+    special_locations = {}
+    
+    patterns = [
+        (r'<text[^>]*x="([\d.-]+)"[^>]*y="([\d.-]+)"[^>]*>entrance</text>', 'entrance'),
+        (r'<text[^>]*x="([\d.-]+)"[^>]*y="([\d.-]+)"[^>]*>checkout</text>', 'checkout'),
+        (r'<text[^>]*x="([\d.-]+)"[^>]*y="([\d.-]+)"[^>]*>escalator</text>', 'escalator'),
+        (r'<text[^>]*x="([\d.-]+)"[^>]*y="([\d.-]+)"[^>]*>elevator</text>', 'elevator'),
+        (r'<text[^>]*x="([\d.-]+)"[^>]*y="([\d.-]+)"[^>]*>stairs</text>', 'stairs'),
+    ]
+    
+    for pattern, location in patterns:
+        for match in re.finditer(pattern, svg_content):
+            x = float(match.group(1))
+            y = float(match.group(2))
+            key = f"{location}_floor{floor_num}" if floor_num > 1 else location
+            if key not in special_locations:
+                special_locations[key] = (x, y)
+    
+    return {
+        'aisles': aisles,
+        'aisle_markers': aisle_markers,
+        'special_locations': special_locations
+    }
 
 
 def fetch_store_map(store_url: str, headless: bool = True) -> Optional[Dict]:
     """
-    Navigate to store page, click Store Map button, and extract SVG.
-    Returns: {svg_content, aisles, aisle_markers, width, height, viewBox}
+    Navigate to store page, click Store Map button, and extract SVG(s).
+    Handles multi-floor stores by fetching each floor's map.
+    Returns: {floors: [{svg_content, aisles, aisle_markers, ...}], vertical_connections}
     """
     with sync_playwright() as p:
         browser = p.webkit.launch(headless=headless)
@@ -36,72 +119,169 @@ def fetch_store_map(store_url: str, headless: bool = True) -> Optional[Dict]:
                 print("Map modal not found")
                 return None
             
-            # Extract the complete SVG from the modal
-            full_svg = page.evaluate('''() => {
-                const modal = document.querySelector('[role="dialog"]');
-                if (!modal) return null;
+            # Check for multiple floors
+            floor_selector = detect_floor_selector(page)
+            floors_data = []
+            vertical_connections = []
+            
+            if floor_selector:
+                # Multi-floor store - fetch each floor
+                if floor_selector == 'text':
+                    # Text-based floor detection - likely single floor with floor mentions
+                    floor_count = 1
+                else:
+                    # Button-based floor selector
+                    floor_buttons = page.locator(floor_selector)
+                    floor_count = floor_buttons.count()
                 
-                const svgs = modal.querySelectorAll('svg');
-                for (const svg of svgs) {
-                    const html = svg.outerHTML;
-                    if (html.length > 10000) {
-                        return html;
-                    }
+                print(f"Multi-floor store detected: {floor_count} floor(s)")
+                
+                for floor_idx in range(floor_count):
+                    if floor_selector != 'text':
+                        # Click floor button
+                        floor_buttons.nth(floor_idx).click()
+                        page.wait_for_timeout(2000)
+                    
+                    # Extract SVG for this floor
+                    floor_svg = page.evaluate('''() => {
+                        const modal = document.querySelector('[role="dialog"]');
+                        if (!modal) return null;
+                        
+                        const svgs = modal.querySelectorAll('svg');
+                        for (const svg of svgs) {
+                            const html = svg.outerHTML;
+                            if (html.length > 10000) {
+                                return html;
+                            }
+                        }
+                        return null;
+                    }''')
+                    
+                    if floor_svg:
+                        # Parse SVG attributes
+                        attr_match = re.search(r'<svg([^>]+)>', floor_svg)
+                        if attr_match:
+                            attrs_str = attr_match.group(1)
+                            viewBox_match = re.search(r'viewBox="([^"]+)"', attrs_str)
+                            viewBox = viewBox_match.group(1) if viewBox_match else ''
+                            
+                            width, height = 0, 0
+                            if viewBox:
+                                parts = viewBox.split()
+                                if len(parts) >= 4:
+                                    width = float(parts[2])
+                                    height = float(parts[3])
+                            
+                            # Extract floor data
+                            floor_data = extract_floor_data(floor_svg, floor_idx + 1)
+                            
+                            floors_data.append({
+                                'floor': floor_idx + 1,
+                                'svg_content': floor_svg,
+                                'full_svg': floor_svg,
+                                'aisles': floor_data['aisles'],
+                                'aisle_markers': floor_data['aisle_markers'],
+                                'special_locations': floor_data['special_locations'],
+                                'width': width,
+                                'height': height,
+                                'viewBox': viewBox
+                            })
+                            
+                            # Look for vertical connections (escalator/elevator positions)
+                            if 'escalator' in floor_data['special_locations'] or 'elevator' in floor_data['special_locations']:
+                                for key, pos in floor_data['special_locations'].items():
+                                    if key.startswith('escalator') or key.startswith('elevator') or key.startswith('stairs'):
+                                        vertical_connections.append({
+                                            'floor': floor_idx + 1,
+                                            'type': key.split('_')[0],
+                                            'position': pos
+                                        })
+                
+                if not floors_data:
+                    print("No floor SVGs extracted")
+                    return None
+                
+                # Return combined data
+                return {
+                    'floors': floors_data,
+                    'vertical_connections': vertical_connections,
+                    'is_multi_floor': len(floors_data) > 1,
+                    # For backward compatibility, use floor 1 as default
+                    'svg_content': floors_data[0]['svg_content'],
+                    'aisles': floors_data[0]['aisles'],
+                    'aisle_markers': floors_data[0]['aisle_markers'],
+                    'special_locations': floors_data[0]['special_locations'],
+                    'width': floors_data[0]['width'],
+                    'height': floors_data[0]['height'],
+                    'viewBox': floors_data[0]['viewBox'],
+                    'full_svg': floors_data[0]['full_svg']
                 }
-                return null;
-            }''')
             
-            if not full_svg:
-                print("No large SVG found in modal")
-                return None
-            
-            # Parse SVG attributes
-            attr_match = re.search(r'<svg([^>]+)>', full_svg)
-            if not attr_match:
-                return None
-            
-            attrs_str = attr_match.group(1)
-            
-            # Extract viewBox
-            viewBox_match = re.search(r'viewBox="([^"]+)"', attrs_str)
-            viewBox = viewBox_match.group(1) if viewBox_match else ''
-            
-            # Extract width/height from viewBox
-            width, height = 0, 0
-            if viewBox:
-                parts = viewBox.split()
-                if len(parts) >= 4:
-                    width = float(parts[2])
-                    height = float(parts[3])
-            
-            # Extract aisle labels from SVG text elements
-            aisles = []
-            aisle_markers = []
-            
-            # Match text elements with aisle labels - be more specific to avoid matching font-family
-            text_matches = re.findall(r'<text[^>]*x="([\d.-]+)"[^>]*y="([\d.-]+)"[^>]*>([A-Z]{1,2}\d{1,3}|CL\d{1,2})</text>', full_svg)
-            
-            for x, y, aisle in text_matches:
-                if aisle not in aisles:
-                    aisles.append(aisle)
-                try:
-                    aisle_markers.append({
-                        'aisle': aisle,
-                        'x': float(x),
-                        'y': float(y)
-                    })
-                except ValueError:
-                    pass  # Skip if x/y can't be converted to float
-            
-            return {
-                'svg_content': full_svg,
-                'aisles': aisles,
-                'aisle_markers': aisle_markers,
-                'width': width,
-                'height': height,
-                'viewBox': viewBox,
-                'full_svg': full_svg  # Keep original
-            }
+            else:
+                # Single floor store - original behavior
+                full_svg = page.evaluate('''() => {
+                    const modal = document.querySelector('[role="dialog"]');
+                    if (!modal) return null;
+                    
+                    const svgs = modal.querySelectorAll('svg');
+                    for (const svg of svgs) {
+                        const html = svg.outerHTML;
+                        if (html.length > 10000) {
+                            return html;
+                        }
+                    }
+                    return null;
+                }''')
+                
+                if not full_svg:
+                    print("No large SVG found in modal")
+                    return None
+                
+                # Parse SVG attributes
+                attr_match = re.search(r'<svg([^>]+)>', full_svg)
+                if not attr_match:
+                    return None
+                
+                attrs_str = attr_match.group(1)
+                
+                # Extract viewBox
+                viewBox_match = re.search(r'viewBox="([^"]+)"', attrs_str)
+                viewBox = viewBox_match.group(1) if viewBox_match else ''
+                
+                # Extract width/height from viewBox
+                width, height = 0, 0
+                if viewBox:
+                    parts = viewBox.split()
+                    if len(parts) >= 4:
+                        width = float(parts[2])
+                        height = float(parts[3])
+                
+                # Extract floor data
+                floor_data = extract_floor_data(full_svg, 1)
+                
+                return {
+                    'svg_content': full_svg,
+                    'aisles': floor_data['aisles'],
+                    'aisle_markers': floor_data['aisle_markers'],
+                    'special_locations': floor_data['special_locations'],
+                    'width': width,
+                    'height': height,
+                    'viewBox': viewBox,
+                    'full_svg': full_svg,
+                    'floors': [{
+                        'floor': 1,
+                        'svg_content': full_svg,
+                        'full_svg': full_svg,
+                        'aisles': floor_data['aisles'],
+                        'aisle_markers': floor_data['aisle_markers'],
+                        'special_locations': floor_data['special_locations'],
+                        'width': width,
+                        'height': height,
+                        'viewBox': viewBox
+                    }],
+                    'vertical_connections': [],
+                    'is_multi_floor': False
+                }
             
         except Exception as e:
             print(f"Error fetching store map: {e}")

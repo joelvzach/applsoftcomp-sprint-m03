@@ -25,7 +25,7 @@ class StoreMaze:
     1.0 = walkable (corridors, floor areas)
     """
     
-    resolution = 0.3  # 30cm per cell (optimized for speed, still accurate enough)
+    resolution = 0.5  # 50cm per cell (optimized for speed)
     
     def __init__(self, svg_content: str):
         self.svg_content = svg_content

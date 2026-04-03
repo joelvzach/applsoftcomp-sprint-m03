@@ -9,21 +9,27 @@ AI assistant that helps users find the shortest path to collect grocery items fr
 
 ```
 .agents/skills/target-shopper/
-  SKILL.md               (agent workflow instructions)
-  README.md              (user guide - copied to project/)
+  main.py                (orchestrator script - runs complete workflow)
+  SKILL.md               (agent workflow instructions) [TODO]
+  README.md              (user guide - copied to project/) [TODO]
   tools/
-    store_locator.py     (find Target store URL from name)
-    item_search.py       (search item, extract aisle/price)
-    svg_fetcher.py       (extract store map SVG via Playwright)
-    route_optimizer.py   (calculate shortest path with networkx)
-    report_generator.py  (generate grocery_report markdown)
-    html_generator.py    (generate interactive HTML map)
+    store_locator.py     (find Target store URL from name) ✅
+    item_search.py       (search item, extract aisle/price) ✅
+    parallel_search.py   (distribute searches across 4 workers) ✅
+    svg_fetcher.py       (extract store map SVG via Playwright) ✅
+    route_optimizer.py   (basic route optimization) ✅
+    maze_analyzer.py     (convert SVG to walkability grid) ✅
+    maze_pathfinder.py   (A* pathfinding with turn minimization) ✅
+    maze_visualizer.py   (debug SVG generation) ✅
+    route_visualizer.py  (color-coded route visualization) ✅
+    report_generator.py  (generate grocery_report markdown) ✅
+    html_generator.py    (generate interactive HTML map) [TODO]
   templates/
-    preferences.md       (user preferences template)
-    list.md              (sample grocery list template)
-    grocery_report.md    (report table format)
-    output.md            (route summary format)
-    progress.txt         (item search tracking)
+    preferences.md       (user preferences template) [TODO]
+    list.md              (sample grocery list template) [exists in project/]
+    grocery_report.md    (report table format) ✅
+    output.md            (route summary format) [TODO]
+    progress.txt         (item search tracking) [TODO]
 
 project/
   PRD.md                 (this file)
@@ -38,8 +44,8 @@ project/
 ---
 
 ## Task 1: Project Setup & Dependencies
-- **Implemented**: false
-- **Test Passed**: false
+- **Implemented**: true
+- **Test Passed**: true
 - **Goal**: Create project structure and dependency management
 - **Inputs**: None
 - **Outputs**: `.agents/skills/target-shopper/` directory, `requirements.txt`, Python environment config
@@ -55,8 +61,9 @@ project/
 ---
 
 ## Task 2: Store Locator & URL Builder
-- **Implemented**: false
-- **Test Passed**: false
+- **Implemented**: true
+- **Test Passed**: true
+- **Notes**: Supports city+zip fallback, auto-selects most common city
 - **Goal**: Convert user-provided store name to Target store URL
 - **Inputs**: Store name from user query (e.g., "Vestal", "Binghamton")
 - **Outputs**: Target store URL (e.g., `https://www.target.com/sl/binghamton-vestal/1056`)
@@ -72,8 +79,9 @@ project/
 ---
 
 ## Task 3: Parallel Item Search Agent (ISOLATE)
-- **Implemented**: false
-- **Test Passed**: false
+- **Implemented**: true
+- **Test Passed**: true
+- **Notes**: 4 parallel workers, extracts price+aisle, writes to progress.txt
 - **Goal**: Search Target.com for each grocery item and extract aisle/price data
 - **Inputs**: Item name from `project/list.md`, store URL
 - **Outputs**: `{item, available, aisle, price, product_url}` per item
@@ -91,8 +99,9 @@ project/
 ---
 
 ## Task 4: Store Map SVG Fetcher
-- **Implemented**: false
-- **Test Passed**: false
+- **Implemented**: true
+- **Test Passed**: true
+- **Notes**: Multi-floor support, extracts vertical connections (escalator/elevator)
 - **Goal**: Extract SVG store map via Playwright browser automation
 - **Inputs**: Store URL
 - **Outputs**: Raw SVG content with aisle markers
@@ -108,8 +117,9 @@ project/
 ---
 
 ## Task 5: Route Optimizer
-- **Implemented**: false
-- **Test Passed**: false
+- **Implemented**: true
+- **Test Passed**: true
+- **Notes**: Maze-based A* pathfinding, orthogonal routing, turn minimization, multi-floor support with escalator connections
 - **Goal**: Calculate shortest walking path through store
 - **Inputs**: List of aisles with items, store SVG dimensions, entrance location, checkout location
 - **Outputs**: Ordered list of items with path coordinates and sequence
@@ -128,8 +138,9 @@ project/
 ---
 
 ## Task 6: Report Generator (grocery_report_<timestamp>.md)
-- **Implemented**: false
-- **Test Passed**: false
+- **Implemented**: true
+- **Test Passed**: true
+- **Notes**: Generates markdown table with summary, template saved in templates/
 - **Goal**: Generate item availability and pricing report
 - **Inputs**: Item search results from Task 3
 - **Outputs**: `project/output/grocery_report_<timestamp>.md`
@@ -147,6 +158,42 @@ project/
 ## Task 7: HTML Map Generator
 - **Implemented**: false
 - **Test Passed**: false
+- **Status**: Pending - D3.js interactive visualization
+
+---
+
+## Task 8: Output Summary Generator (output_<timestamp>.md)
+- **Implemented**: false
+- **Test Passed**: false
+- **Status**: Pending - Route summary with statistics
+
+---
+
+## Task 9: SKILL.md Orchestrator with WRITE/SELECT/ISOLATE
+- **Implemented**: false
+- **Test Passed**: false
+- **Status**: Pending - Agent workflow definition
+
+---
+
+## Task 10: Edge Case Handler
+- **Implemented**: partial
+- **Test Passed**: false
+- **Status**: Basic error handling in place, needs comprehensive testing
+
+---
+
+## Task 11: Template Files Creation
+- **Implemented**: partial
+- **Test Passed**: false
+- **Status**: grocery_report.md created, others pending
+
+---
+
+## Task 12: README.md for Users
+- **Implemented**: false
+- **Test Passed**: false
+- **Status**: Pending - User documentation
 - **Goal**: Generate interactive HTML with store map and route visualization
 - **Inputs**: SVG map, route coordinates, item data
 - **Outputs**: `project/output/route_map_<timestamp>.html`
@@ -164,181 +211,6 @@ project/
 
 ---
 
-## Task 8: Output Summary Generator (output_<timestamp>.md)
-- **Implemented**: false
-- **Test Passed**: false
-- **Goal**: Generate route summary with statistics
-- **Inputs**: Route data, item list, report data
-- **Outputs**: `project/output/output_<timestamp>.md`
-- **Specifications**:
-  - Filename format: `output_<timestamp>.md`
-  - Include: item order in route, aisles visited in sequence, total estimated distance
-  - Hyperlink to HTML map file (relative path: `route_map_<timestamp>.html`)
-  - Follow template from `templates/output.md`
-  - Concise format (not verbose)
-- **Test Case**: 10-item route → Summary with all stats and working HTML link
-- **Evaluation Criteria**: All statistics present, HTML link clickable and resolves correctly
-
----
-
-## Task 9: SKILL.md Orchestrator with WRITE/SELECT/ISOLATE
-- **Implemented**: false
-- **Test Passed**: false
-- **Goal**: Define agent workflow with WRITE, SELECT, ISOLATE patterns
-- **Inputs**: Natural language query containing "Target" and/or "store" and/or "shopping"
-- **Outputs**: All output files generated in `project/output/`
-- **Specifications**:
-
-### WRITE Section (User Preferences)
-- Save user preferences to `project/preferences.md` in bullet-point format
-- Track: preferred store location, item preferences (brands, organic, etc.), special requests about items
-- Update preferences when user explicitly states them (e.g., "always pick organic", "avoid brand X")
-- Free-form bullet format, not key-value
-
-### SELECT Section (Context Retrieval)
-- Before responding, read relevant context:
-  - `project/preferences.md` for saved preferences and default store
-  - `project/list.md` for shopping list
-  - Previous reports if user asks questions about past runs
-  - `project/output/` folder for recent outputs
-- If user adds questions to consider, review relevant files before responding
-
-### ISOLATE Section (Subagent Delegation)
-- Maximum 4 parallel subagents for item searches only
-- Other tasks (SVG fetch, route optimize, report gen) run sequentially
-- Lead Agent coordinates all subagents
-- Subagents report progress to `templates/progress.txt`
-
-### Trigger Pattern
-- Match natural language containing: "Target" OR "store" OR "shopping" + route-related terms
-- Examples: "show me my target shopping grocery route at Vestal outlet", "generate my target route"
-
-- **Test Case**: Run skill with query "show me my target shopping grocery route at Vestal outlet" with 15 items in list.md
-- **Evaluation Criteria**: All files generated correctly, route optimal, preferences saved, no errors
-
----
-
-## Task 10: Edge Case Handler
-- **Implemented**: false
-- **Test Passed**: false
-- **Goal**: Handle errors and edge cases gracefully
-- **Inputs**: Error conditions (missing list.md, store not found, SVG fetch fail, item search fail)
-- **Outputs**: User-friendly error messages, graceful degradation
-- **Specifications**:
-  - If `project/list.md` missing:
-    - Prompt user to create it OR
-    - If user provides items in prompt, overwrite `project/list.md` with provided items (unless user says "append")
-  - If store name ambiguous:
-    - Show numbered list of matching stores for user to pick
-    - Save selection to `project/preferences.md`
-  - If SVG fetch fails:
-    - Continue with text-only output (grocery_report.md and output.md)
-    - Note in output that map unavailable
-  - If item search fails:
-    - Mark item as missing in report
-    - Continue with remaining items
-  - If Target.com is unreachable:
-    - Show error message with suggestion to retry
-- **Test Case**: Run with missing list.md, invalid store name, unreachable Target.com
-- **Evaluation Criteria**: Clear error messages displayed, graceful degradation, no crashes
-
----
-
-## Task 11: Template Files Creation
-- **Implemented**: false
-- **Test Passed**: false
-- **Goal**: Create all template files under `templates/` folder
-- **Inputs**: None
-- **Outputs**: Template files in `.agents/skills/target-shopper/templates/`
-- **Specifications**:
-
-### templates/preferences.md
-```markdown
-# User Preferences
-
-## Store Location
-- Default store: [store name and URL]
-
-## Item Preferences
-- [e.g., Always pick organic when available]
-- [e.g., Avoid specific brands]
-
-## Special Requests
-- [e.g., Keep cold items together]
-- [e.g., Budget constraints]
-```
-
-### templates/list.md
-```markdown
-# Shopping List
-
-- eggs
-- milk
-- bread
-- butter
-- cheese
-```
-
-### templates/grocery_report.md
-```markdown
-# Grocery Report - {timestamp}
-
-| Item | Available | Aisle | Price | Product URL |
-|------|-----------|-------|-------|-------------|
-| {item} | Yes/No | {aisle} | {price} | {url} |
-```
-
-### templates/output.md
-```markdown
-# Route Summary - {timestamp}
-
-## Items in Order
-1. {item} - Aisle {aisle}
-2. {item} - Aisle {aisle}
-...
-
-## Aisles Visited
-{aisle1} → {aisle2} → ... → {aisleN}
-
-## Statistics
-- Total items: {N}
-- Available: {M}
-- Missing: {K}
-- Estimated walking distance: {X} feet
-
-## Interactive Map
-[View Route Map](./route_map_{timestamp}.html)
-```
-
-### templates/progress.txt
-```
-[item_name]: [status: pending/searching/found/missing] - [aisle if found]
-```
-
-- **Test Case**: All templates created with correct format
-- **Evaluation Criteria**: Templates match specifications, placeholders correctly formatted
-
----
-
-## Task 12: README.md for Users
-- **Implemented**: false
-- **Test Passed**: false
-- **Goal**: Create user documentation
-- **Inputs**: None
-- **Outputs**: `project/README.md` (copied from skill template)
-- **Specifications**:
-  - Explain how to install dependencies (`uv pip install -r requirements.txt`, `playwright install`)
-  - How to add items to `list.md`
-  - How to run the skill (natural language triggers)
-  - How to view outputs in `project/output/`
-  - How to set preferences
-  - Troubleshooting common issues
-  - Copy to `project/README.md` during setup
-- **Test Case**: New user follows README and successfully runs skill
-- **Evaluation Criteria**: Clear instructions, no missing steps, troubleshooting section helpful
-
----
-
 ## Stop Conditions
 - All 12 tasks implemented and tested
 - All output files generate correctly
@@ -346,6 +218,35 @@ project/
 - User can successfully run skill end-to-end
 - Sub-agent fails repeatedly → Escalate to user
 - User cancels
+
+---
+
+## Progress Summary (Updated: 2026-04-02)
+
+### Completed Tasks (6/12 - 50%)
+✅ **Task 1**: Project Setup - Directory structure, requirements.txt, .venv  
+✅ **Task 2**: Store Locator - City/zip search, auto-select most common city  
+✅ **Task 3**: Parallel Item Search - 4 workers, aisle+price extraction  
+✅ **Task 4**: SVG Fetcher - Multi-floor support, vertical connections  
+✅ **Task 5**: Route Optimizer - Maze A* pathfinding, orthogonal routing  
+✅ **Task 6**: Report Generator - Markdown table with summary  
+
+### In Progress / Partial (1/12)
+🟡 **Task 10**: Edge Case Handler - Basic error handling implemented  
+
+### Pending Tasks (5/12)
+❌ **Task 7**: HTML Map Generator - D3.js interactive visualization  
+❌ **Task 8**: Output Summary - Route statistics markdown  
+❌ **Task 9**: SKILL.md - Agent orchestrator workflow  
+❌ **Task 11**: Template Files - preferences.md, output.md, progress.txt  
+❌ **Task 12**: README.md - User documentation  
+
+### Key Features Implemented
+- **Maze-based pathfinding**: Avoids cutting through aisles, follows walkable corridors
+- **Multi-floor support**: Detects floor selectors, routes via escalator/elevator
+- **City fallback**: "Portland 9800" → searches "Portland" if zip fails
+- **Color-coded routes**: Different shades for each path segment
+- **Orthogonal routing**: 90° turns, minimizes direction changes
 
 ---
 
