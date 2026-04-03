@@ -1,0 +1,36 @@
+{
+  "stores": [
+    {
+      "store": {
+        "name": "Flushing",
+        "url": "https://www.target.com/sl/flushing/2451",
+        "store_id": "2451"
+      },
+      "last_used": "2026-04-03T00:17:32.063677"
+    },
+    {
+      "store": {
+        "name": "BROOKLYN",
+        "url": "https://www.target.com/sl/brooklyn-fulton-st/2850",
+        "store_id": "2850"
+      },
+      "last_used": "2026-04-03T00:29:23.403282"
+    },
+    {
+      "store": {
+        "name": "Amherst",
+        "url": "https://www.target.com/sl/boulevard-mall/1010",
+        "store_id": "1010"
+      },
+      "last_used": "2026-04-03T00:34:49.814810"
+    },
+    {
+      "store": {
+        "name": "Binghamton Vestal , Vestal, NY",
+        "url": "https://www.target.com/sl/store-1056/1056",
+        "store_id": "1056"
+      },
+      "last_used": "2026-04-03T00:44:16.094546"
+    }
+  ]
+}

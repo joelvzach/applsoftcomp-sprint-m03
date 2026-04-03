@@ -2,11 +2,45 @@
 """
 Store Locator - Find Target store URL from store name or ID.
 Uses Playwright to interact with Target.com store locator.
+
+Strategies (in order):
+1. Direct store ID access (fastest, most reliable)
+2. State directory navigation (bypasses anti-bot)
+3. Recent stores cache (for repeat users)
+4. Traditional search (fallback, may be blocked)
 """
 
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 import re
+import json
+from pathlib import Path
+from datetime import datetime, timedelta
+
+
+# State abbreviations mapping
+STATE_ABBREVS = {
+    'NY': 'New York', 'CA': 'California', 'TX': 'Texas',
+    'FL': 'Florida', 'IL': 'Illinois', 'PA': 'Pennsylvania',
+    'OH': 'Ohio', 'GA': 'Georgia', 'NC': 'North Carolina',
+    'MI': 'Michigan', 'NJ': 'New Jersey', 'VA': 'Virginia',
+    'WA': 'Washington', 'AZ': 'Arizona', 'MA': 'Massachusetts',
+    'TN': 'Tennessee', 'IN': 'Indiana', 'MO': 'Missouri',
+    'MD': 'Maryland', 'WI': 'Wisconsin', 'CO': 'Colorado',
+    'MN': 'Minnesota', 'SC': 'South Carolina', 'AL': 'Alabama',
+    'LA': 'Louisiana', 'KY': 'Kentucky', 'OR': 'Oregon',
+    'OK': 'Oklahoma', 'CT': 'Connecticut', 'UT': 'Utah',
+    'IA': 'Iowa', 'NV': 'Nevada', 'AR': 'Arkansas',
+    'MS': 'Mississippi', 'KS': 'Kansas', 'NM': 'New Mexico',
+    'NE': 'Nebraska', 'WV': 'West Virginia', 'ID': 'Idaho',
+    'HI': 'Hawaii', 'NH': 'New Hampshire', 'ME': 'Maine',
+    'MT': 'Montana', 'RI': 'Rhode Island', 'DE': 'Delaware',
+    'SD': 'South Dakota', 'ND': 'North Dakota', 'AK': 'Alaska',
+    'VT': 'Vermont', 'WY': 'Wyoming', 'DC': 'District of Columbia'
+}
+
+# Reverse mapping: full state name → abbreviation
+STATE_NAMES = {v: k for k, v in STATE_ABBREVS.items()}
 
 
 def get_store_by_id(store_id: str, headless: bool = True) -> Optional[Dict[str, str]]:
@@ -41,10 +75,221 @@ def get_store_by_id(store_id: str, headless: bool = True) -> Optional[Dict[str, 
     return None
 
 
+def parse_location(query: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Parse location query into state and city.
+    
+    Examples:
+        "New York" → ("New York", None)
+        "Manhattan, NY" → ("New York", "Manhattan")
+        "Los Angeles, CA" → ("California", "Los Angeles")
+        "Vestal" → (None, None)  # Falls back to traditional search
+    """
+    # Check for "City, ST" format
+    if ',' in query:
+        parts = query.split(',')
+        city = parts[0].strip()
+        state_part = parts[1].strip().upper()
+        
+        # Convert abbreviation to full state name
+        state = STATE_ABBREVS.get(state_part, state_part.title())
+        return (state, city)
+    
+    # Check if query is a state name
+    query_title = query.title()
+    if query_title in STATE_NAMES:
+        return (query_title, None)
+    
+    # Not parseable - fallback to traditional search
+    return (None, None)
+
+
+def search_by_state_directory(state: str, city: str = None, headless: bool = True) -> List[Dict[str, str]]:
+    """
+    Navigate through store directory: state page → filter by city.
+    Bypasses anti-bot protection by using static directory pages.
+    
+    Args:
+        state: State name (e.g., "New York", "California")
+        city: Optional city filter (e.g., "Manhattan", "Buffalo")
+        headless: Run browser without UI
+    
+    Returns:
+        List of stores: [{name, url, store_id, address}]
+    """
+    stores = []
+    
+    with sync_playwright() as p:
+        browser = p.webkit.launch(headless=headless)
+        page = browser.new_page()
+        
+        try:
+            # Go to state directory page
+            state_slug = state.lower().replace(' ', '-')
+            state_url = f"https://www.target.com/store-locator/store-directory/{state_slug}"
+            
+            print(f"  → Navigating to {state_slug} store directory...")
+            page.goto(state_url, timeout=30000, wait_until='domcontentloaded')
+            page.wait_for_timeout(3000)
+            
+            # Extract all stores on the page
+            stores_data = page.evaluate('''() => {
+                const results = [];
+                // Look for store cards or links
+                const allLinks = document.querySelectorAll('a[href*="/sl/"]');
+                
+                allLinks.forEach(link => {
+                    const href = link.href;
+                    const storeIdMatch = href.match(/\\/sl\\/[^\\/]+\\/(\\d+)/);
+                    if (!storeIdMatch) return;
+                    
+                    // Try to find store name in surrounding elements
+                    let name = link.innerText.trim();
+                    if (!name || name.length < 3) {
+                        // Try parent elements
+                        let parent = link.parentElement;
+                        let depth = 0;
+                        while (parent && depth < 5) {
+                            const text = parent.innerText || '';
+                            if (text.length > 5 && text.length < 100 && !text.includes('http')) {
+                                name = text.split('\\n')[0].trim();
+                                if (name.length > 3) break;
+                            }
+                            parent = parent.parentElement;
+                            depth++;
+                        }
+                    }
+                    
+                    if (name && name.length > 3) {
+                        results.push({
+                            name: name,
+                            url: href,
+                            store_id: storeIdMatch[1]
+                        });
+                    }
+                });
+                
+                // Deduplicate by store ID
+                const seen = new Set();
+                const unique = results.filter(s => {
+                    if (seen.has(s.store_id)) return false;
+                    seen.add(s.store_id);
+                    return true;
+                });
+                
+                return unique;
+            }''')
+            
+            stores = stores_data
+            
+        except Exception as e:
+            print(f"Error fetching state directory: {e}")
+        finally:
+            browser.close()
+    
+    # Filter by city if specified
+    if city and stores:
+        city_lower = city.lower()
+        filtered = [
+            s for s in stores 
+            if city_lower in s['name'].lower()
+        ]
+        if filtered:
+            print(f"  → Filtered to {len(filtered)} stores in {city}")
+            stores = filtered
+        else:
+            # Special handling for "New York City" - look for boroughs
+            if city_lower in ['new york city', 'nyc']:
+                nyc_boroughs = ['bronx', 'brooklyn', 'queens', 'staten', 'manhattan', 'flushing', 'jamaica']
+                borough_filtered = [
+                    s for s in stores
+                    if any(borough in s['name'].lower() for borough in nyc_boroughs)
+                ]
+                if borough_filtered:
+                    print(f"  → Found {len(borough_filtered)} stores in NYC boroughs")
+                    stores = borough_filtered
+                else:
+                    print(f"  → No stores found in {city}, showing all {len(stores)} stores in {state}")
+            else:
+                print(f"  → No stores found in {city}, showing all {len(stores)} stores in {state}")
+    
+    return stores
+
+
+def get_recent_stores(max_age_days: int = 30, limit: int = 5) -> List[Dict]:
+    """
+    Get recently used stores from cache.
+    
+    Args:
+        max_age_days: Maximum age of cached stores
+        limit: Maximum number of stores to return
+    
+    Returns:
+        List of recent stores
+    """
+    cache_file = Path(__file__).parent.parent / "project" / ".store_cache.json"
+    
+    if not cache_file.exists():
+        return []
+    
+    try:
+        with open(cache_file, 'r') as f:
+            cache = json.load(f)
+        
+        cutoff = datetime.now() - timedelta(days=max_age_days)
+        recent = []
+        
+        for entry in cache.get('stores', []):
+            last_used = datetime.fromisoformat(entry.get('last_used', '1970-01-01'))
+            if last_used > cutoff:
+                recent.append(entry['store'])
+        
+        return recent[:limit]
+    
+    except Exception:
+        return []
+
+
+def save_store_to_cache(store: Dict):
+    """Save store to recent stores cache."""
+    cache_file = Path(__file__).parent.parent / "project" / ".store_cache.json"
+    
+    try:
+        cache = {}
+        if cache_file.exists():
+            with open(cache_file, 'r') as f:
+                cache = json.load(f)
+        
+        if 'stores' not in cache:
+            cache['stores'] = []
+        
+        # Remove existing entry for this store
+        cache['stores'] = [s for s in cache['stores'] if s['store']['store_id'] != store['store_id']]
+        
+        # Add new entry with timestamp
+        cache['stores'].append({
+            'store': store,
+            'last_used': datetime.now().isoformat()
+        })
+        
+        # Keep only last 20 entries
+        cache['stores'] = cache['stores'][-20:]
+        
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(cache_file, 'w') as f:
+            json.dump(cache, f, indent=2)
+    
+    except Exception as e:
+        print(f"Warning: Could not save to cache: {e}")
+
+
 def search_stores(store_name: str, headless: bool = True) -> List[Dict[str, str]]:
     """
     Search for Target stores by name using Playwright.
     Returns list of matching stores with name, URL, and store ID.
+    
+    Note: This method may be blocked by Target's anti-bot protection.
+    Use search_by_state_directory() as primary method instead.
     """
     stores = []
     
@@ -212,42 +457,95 @@ def extract_store_id(store_url: str) -> Optional[str]:
 def find_store(store_name: str, headless: bool = True, auto_select: bool = False, save_preference: bool = True) -> Optional[Dict[str, str]]:
     """
     Find a Target store by name or ID.
-    If multiple matches, prompt user to select (or auto-select first if auto_select=True).
-    Returns selected store info or None if not found.
     
-    Strategy: Try exact search first, then fall back to city-only search if zip code fails.
+    Strategy (in order):
+    1. Direct store ID access (if numeric)
+    2. Recent stores cache (for repeat users)
+    3. State directory navigation (bypasses anti-bot)
+    4. Traditional search (fallback, may be blocked)
+    
+    If multiple matches, auto-selects most reasonable option or prompts user.
+    Returns selected store info or None if not found.
     """
+    # Strategy 1: Direct store ID access
     if store_name.isdigit() and len(store_name) >= 3:
         store = get_store_by_id(store_name, headless)
         if store:
             print(f"Found store: {store['name']} (ID: {store['store_id']})")
             if save_preference:
                 save_store_preference(store)
+            save_store_to_cache(store)
             return store
     
-    # Try original search first
+    # Strategy 2: Check recent stores cache
+    recent_stores = get_recent_stores()
+    if recent_stores:
+        # Check if any recent store matches the query
+        query_lower = store_name.lower()
+        for recent in recent_stores:
+            if query_lower in recent['name'].lower() or query_lower in recent.get('address', '').lower():
+                print(f"Using recent store: {recent['name']}")
+                if save_preference:
+                    save_store_preference(recent)
+                save_store_to_cache(recent)
+                return recent
+    
+    # Strategy 3: State directory navigation (primary method)
+    state, city = parse_location(store_name)
+    if state:
+        print(f"  → Searching {state} store directory...")
+        stores = search_by_state_directory(state, city, headless)
+        
+        if stores:
+            if len(stores) == 1:
+                print(f"Found store: {stores[0]['name']}")
+                if save_preference:
+                    save_store_preference(stores[0])
+                save_store_to_cache(stores[0])
+                return stores[0]
+            
+            # Auto-select most reasonable option
+            # Prefer stores with city name in title, or first store
+            if city:
+                city_lower = city.lower()
+                for store in stores:
+                    if city_lower in store['name'].lower():
+                        print(f"Auto-selected: {store['name']}")
+                        if save_preference:
+                            save_store_preference(store)
+                        save_store_to_cache(store)
+                        return store
+            
+            # Select first store as default
+            selected = stores[0]
+            print(f"Auto-selected: {selected['name']}")
+            if save_preference:
+                save_store_preference(selected)
+            save_store_to_cache(selected)
+            return selected
+    
+    # Strategy 4: Traditional search (fallback)
     stores = search_stores(store_name, headless)
     
     # If search term contains space (like "Portland 9800"), also try city-only search
-    # and use whichever returns more relevant results
     if ' ' in store_name:
         city_name = store_name.split()[0]
         city_stores = search_stores(city_name, headless)
         
-        # Use city-only results if they exist and original search had 0 or many generic results
         if city_stores and (not stores or (len(stores) >= 10 and len(city_stores) < 10)):
             print(f"Using city-only search: '{city_name}' ({len(city_stores)} stores)")
             stores = city_stores
     
     if not stores:
         print(f"No stores found for '{store_name}'")
-        print("Tip: Try using a city name, ZIP code, or store ID")
+        print("Tip: Try using format 'City, ST' (e.g., 'Manhattan, NY') or a store ID")
         return None
     
     if len(stores) == 1:
         print(f"Found store: {stores[0]['name']}")
         if save_preference:
             save_store_preference(stores[0])
+        save_store_to_cache(stores[0])
         return stores[0]
     
     # Find most common city/location from store names

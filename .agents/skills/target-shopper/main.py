@@ -29,6 +29,8 @@ from report_generator import generate_report, load_items_from_search
 from route_visualizer import save_svg_with_route, extract_special_locations
 from maze_analyzer import StoreMaze
 from maze_pathfinder import find_maze_path, calculate_path_length
+from html_generator import generate_html_map
+from output_generator import generate_output_summary
 
 
 def run_workflow(store_name: str, items: list, headless: bool = True):
@@ -266,11 +268,44 @@ def run_workflow(store_name: str, items: list, headless: bool = True):
     report_path = generate_report(items_for_report)
     print(f"  ✓ Saved: {report_path}")
     
-    # Task 7: HTML Generator (TODO)
-    print("\n[7/8] HTML Generator - Not implemented")
+    # Task 7: HTML Generator
+    print("\n[7/8] Generating interactive HTML map...")
+    html_path = None
+    if svg_result and route_coords:
+        # Get aisle positions and special locations
+        if is_multi_floor:
+            # Use first floor for HTML (simplified view)
+            aisle_positions = floors[0]['aisle_markers']
+            special_locations = floors[0]['special_locations']
+        else:
+            aisle_positions = {aisle: pos for aisle, pos in maze.aisle_labels.items()}
+            special_locations = maze.special_locations
+        
+        html_path = generate_html_map(
+            svg_result['svg_content'],
+            route_coords,
+            search_results,
+            aisle_positions,
+            special_locations
+        )
+        print(f"  ✓ Saved: {html_path}")
+    else:
+        print("  ⊘ Skipped (map unavailable)")
     
-    # Task 8: Output Summary (TODO)
-    print("\n[8/8] Output Summary - Not implemented")
+    # Task 8: Output Summary
+    print("\n[8/8] Generating route summary...")
+    output_path = None
+    if route_coords:
+        output_path = generate_output_summary(
+            search_results,
+            route_coords,
+            route_distance,
+            html_path=html_path,
+            svg_path=viz_path if isinstance(viz_path, str) else None
+        )
+        print(f"  ✓ Saved: {output_path}")
+    else:
+        print("  ⊘ Skipped (no route data)")
     
     print("\n" + "=" * 70)
     print("WORKFLOW COMPLETE")
@@ -290,12 +325,14 @@ if __name__ == '__main__':
     # Example usage
     print("Usage: python main.py <store_name> <item1> [item2] ...")
     print("Example: python main.py Vestal eggs milk bread")
+    print("Note: Uses visible browser by default to avoid anti-bot detection")
     
+    # Default to non-headless (visible browser) to avoid Target's anti-bot detection
     headless = '--headless' in sys.argv
     args = [a for a in sys.argv if not a.startswith('--')]
     
     if len(args) < 3:
-        # Demo with sample items
+        # Demo with sample items - use visible browser
         print("\nRunning demo with sample items...")
         run_workflow("Vestal", ["eggs", "milk", "bread"], headless=False)
     else:
