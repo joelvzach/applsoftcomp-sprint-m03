@@ -1,42 +1,22 @@
-# House Party Shopping List (6 people)
+# Hot and Sour Chicken Soup Ingredients
 
-## Snacks
-- Potato chips
-- Tortilla chips
-- Salsa medium
-- Guacamole
-- Pretzels
-- Cheese crackers
-- Popcorn
+## Protein
+- Chicken breast or thighs (1 lb)
+- Tofu (firm, 14 oz)
 
-## Drinks
-- Coca-Cola 12-pack
-- Sprite 12-pack
-- Water bottles 24-pack
-- Orange juice
-- Beer variety pack (if available)
+## Vegetables
+- Mushrooms (shiitake or button, 8 oz)
+- Bamboo shoots (canned, 8 oz)
+- Green onions (1 bunch)
+- Fresh ginger
+- Garlic
 
-## Main Food
-- Frozen pizza (3-4 boxes)
-- Chicken wings (frozen)
-- Hot dogs
-- Hamburger buns
-- Hot dog buns
-
-## Condiments
-- Ketchup
-- Mustard
-- Mayonnaise
-
-## Desserts
-- Ice cream (vanilla)
-- Chocolate chip cookies
-- Brownie mix
-- Whipped cream
-
-## Supplies
-- Paper plates
-- Plastic cups
-- Napkins
-- Paper towels
-- Trash bags
+## Pantry/Staples
+- Chicken broth (32 oz)
+- Soy sauce
+- Rice vinegar
+- Sesame oil
+- Cornstarch
+- Eggs
+- White pepper
+- Chili flakes or Sriracha
