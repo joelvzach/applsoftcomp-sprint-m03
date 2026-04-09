@@ -1,0 +1,65 @@
+@layer ndsFoundation;
+@layer ndsUtility;
+@layer ndsButtonPrimitives;
+@layer ndsButton;
+@layer ndsTypography;
+@layer ndsLayout;
+@layer ndsDisclosure;
+@layer ndsCheckbox;
+@layer ndsRadio;
+@layer ndsBadge;
+@layer ndsButtonUpload;
+@layer ndsContainer;
+@layer ndsCard;
+@layer ndsDirectionalPad;
+@layer ndsImage;
+@layer ndsLink;
+@layer ndsMarker;
+@layer ndsPaginationDots;
+@layer ndsPlaceholder;
+@layer ndsProgress;
+@layer ndsRating;
+@layer ndsSpinner;
+@layer ndsSwitch;
+@layer ndsTabs;
+@layer ndsZoomable;
+@layer ndsPicture;
+@layer ndsAccordion;
+@layer ndsFormField;
+@layer ndsList;
+@layer ndsRibbon;
+@layer ndsCell;
+@layer ndsChip;
+@layer ndsPopover;
+@layer ndsBreadcrumb;
+@layer ndsButtonConfirmation;
+@layer ndsCarousel;
+@layer ndsSearchBar;
+@layer ndsDatePicker;
+@layer ndErrorBucket;
+@layer ndsPictureNavigation;
+@layer ndsPlaceholderRow;
+@layer ndsToast;
+@layer ndsCellLegacy;
+@layer ndsModal;
+@layer ndsMenu;
+@layer ndsCoachmark;
+@layer ndsPagination;
+@layer ndsVariationSelector;
+@layer ndsTruncate;
+.FeedbackMedalliaButton_feedback__lXJdo { text-decoration: none; font-size: var(--typography-body-lg-font-size); outline: medium; justify-content: start; }
+.FeedbackMedalliaButton_feedback__lXJdo:focus, .FeedbackMedalliaButton_feedback__lXJdo:hover { text-decoration: underline; outline: medium; }
+.Illustration_IllustrationWrapper__xJP5g { height: 212px; display: flex; justify-content: center; background-image: linear-gradient(rgb(247, 247, 247), rgb(238, 238, 238)); }
+.Illustration_IllustrationImg__ptPzW { height: 100%; width: 562px; object-fit: none; }
+.Illustration_HolidayWrapper__zFcqH { height: auto; }
+.Illustration_HolidayImg__YKQXM, .Illustration_HolidayImg__YKQXM img, .Illustration_HolidayImg__YKQXM > div { width: 100%; max-width: 562px; height: auto; object-fit: contain; }
+.styles_external-link-icon__6zpmg { margin-left: 4px; width: 12px; height: 12px; display: inline-block; vertical-align: middle; }
+.OfferDetails_OfferDetailsText__tXUre:hover, .PrimaryLinksComponent_collapsible__Jywes a:focus, .PrimaryLinksComponent_collapsible__Jywes a:hover { text-decoration: underline; }
+.styles_ndsHeaderBanner__E3GWn { background-color: var(--color-background-base-hover); border-right: 0px; border-left: 0px; border-image: none; border-top: 1px solid var(--color-border-subdued); border-bottom: 1px solid var(--color-border-subdued); position: relative; margin-top: -1px; padding: var(--space-padding-container-md) var(--space-padding-container-lg); }
+.styles_hasCloseButton__FPTHY { padding: var(--space-padding-container-md) 50px; }
+.styles_arrow__l9Ds7 { background-color: var(--color-background-subdued); border-left: 1px solid var(--color-border-subdued); border-top: 1px solid var(--color-border-subdued); height: 12px; position: absolute; top: -7px; transform: rotate(45deg); transition: opacity 0.3s; width: 12px; z-index: 1048; left: var(--left-arrow-offset); }
+@media (min-width: 668px) {
+  .styles_arrow__l9Ds7 { display: block; }
+}
+.styles_closeButton__rfEGs { border-color: rgba(0, 0, 0, 0); position: absolute; width: var(--size-button-md); height: var(--size-button-md); top: 3px; right: var(--space-margin-section-sm); padding: 0px; }
+.styles_closeButton__rfEGs svg { width: 12px; height: 12px; }

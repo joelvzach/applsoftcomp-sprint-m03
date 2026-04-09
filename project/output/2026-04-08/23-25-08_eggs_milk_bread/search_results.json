@@ -1,0 +1,23 @@
+[
+  {
+    "item": "eggs",
+    "available": true,
+    "aisle": "B26",
+    "price": 5.42,
+    "product_url": "https://www.target.com/p/eggs/-/A12345678"
+  },
+  {
+    "item": "milk",
+    "available": true,
+    "aisle": "B26",
+    "price": 8.98,
+    "product_url": "https://www.target.com/p/milk/-/A12345678"
+  },
+  {
+    "item": "bread",
+    "available": true,
+    "aisle": "B26",
+    "price": 9.52,
+    "product_url": "https://www.target.com/p/bread/-/A12345678"
+  }
+]

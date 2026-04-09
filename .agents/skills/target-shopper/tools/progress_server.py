@@ -44,23 +44,184 @@ class ProgressHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def serve_route_map(self):
-        """Serve the route_map.html file from session folder."""
+        """Serve the route_viz.svg file from session folder with zoom/pan controls."""
         session_path = ProgressHandler.progress_state.get("session_path")
         if not session_path:
+            print(f"[serve_route_map] ERROR: No session path configured")
             self.send_error(404, "No session path configured")
             return
 
-        map_file = Path(session_path) / "route_map.html"
+        # Try to serve route_viz.svg (pre-rendered with route)
+        map_file = Path(session_path) / "route_viz.svg"
         if not map_file.exists():
+            print(f"[serve_route_map] ERROR: File not found: {map_file}")
+            print(f"[serve_route_map] Session path: {session_path}")
+            print(
+                f"[serve_route_map] Files in session: {list(Path(session_path).iterdir()) if Path(session_path).exists() else 'Path does not exist'}"
+            )
             self.send_error(404, "Route map not found")
             return
 
+        print(f"[serve_route_map] Serving: {map_file}")
+
+        # Read SVG content
+        with open(map_file, "r") as f:
+            svg_content = f.read()
+
+        # Serve SVG wrapped in HTML with zoom/pan controls
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
 
-        with open(map_file, "rb") as f:
-            self.wfile.write(f.read())
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Route Map</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }}
+        .container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }}
+        .header {{
+            padding: 20px;
+            background: #c41230;
+            color: white;
+        }}
+        .header h1 {{ font-size: 24px; margin-bottom: 8px; }}
+        .controls {{
+            padding: 16px 20px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }}
+        .zoom-btn {{
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }}
+        .zoom-btn:hover {{ background: #0056b3; }}
+        .zoom-level {{ margin-left: auto; font-size: 14px; color: #666; }}
+        .map-container {{
+            padding: 20px;
+            overflow: auto;
+            max-height: 70vh;
+            cursor: move;
+            background: white;
+        }}
+        .map-container svg {{
+            transform-origin: 0 0;
+            transition: transform 0.1s ease;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ Route Map</h1>
+            <p>Target Binghamton Vestal - Optimized Shopping Route</p>
+        </div>
+        <div class="controls">
+            <button class="zoom-btn" onclick="zoomIn()">🔍 Zoom In</button>
+            <button class="zoom-btn" onclick="zoomOut()">🔎 Zoom Out</button>
+            <button class="zoom-btn" onclick="resetZoom()">⟲ Reset</button>
+            <span class="zoom-level" id="zoomLevel">100%</span>
+        </div>
+        <div class="map-container" id="mapContainer">
+            {svg_content}
+        </div>
+    </div>
+    <script>
+        let zoom = 1;
+        const mapContainer = document.getElementById('mapContainer');
+        const svg = mapContainer.querySelector('svg');
+        
+        function updateZoom() {{
+            if (svg) {{
+                svg.style.transform = `scale(${{zoom}})`;
+            }}
+            document.getElementById('zoomLevel').textContent = Math.round(zoom * 100) + '%';
+        }}
+        
+        function zoomIn() {{
+            zoom = Math.min(zoom + 0.25, 3);
+            updateZoom();
+        }}
+        
+        function zoomOut() {{
+            zoom = Math.max(zoom - 0.25, 0.25);
+            updateZoom();
+        }}
+        
+        function resetZoom() {{
+            zoom = 1;
+            updateZoom();
+        }}
+        
+        // Pan functionality
+        let isPanning = false;
+        let startX, startY, scrollLeft, scrollTop;
+        
+        mapContainer.addEventListener('mousedown', (e) => {{
+            isPanning = true;
+            startX = e.pageX - mapContainer.offsetLeft;
+            startY = e.pageY - mapContainer.offsetTop;
+            scrollLeft = mapContainer.scrollLeft;
+            scrollTop = mapContainer.scrollTop;
+            mapContainer.style.cursor = 'grabbing';
+        }});
+        
+        mapContainer.addEventListener('mouseleave', () => {{
+            isPanning = false;
+            mapContainer.style.cursor = 'move';
+        }});
+        
+        mapContainer.addEventListener('mouseup', () => {{
+            isPanning = false;
+            mapContainer.style.cursor = 'move';
+        }});
+        
+        mapContainer.addEventListener('mousemove', (e) => {{
+            if (!isPanning) return;
+            e.preventDefault();
+            const x = e.pageX - mapContainer.offsetLeft;
+            const y = e.pageY - mapContainer.offsetTop;
+            const walkX = (x - startX) * 2;
+            const walkY = (y - startY) * 2;
+            mapContainer.scrollLeft = scrollLeft - walkX;
+            mapContainer.scrollTop = scrollTop - walkY;
+        }});
+        
+        // Mouse wheel zoom
+        mapContainer.addEventListener('wheel', (e) => {{
+            e.preventDefault();
+            if (e.deltaY < 0) {{
+                zoom = Math.min(zoom + 0.1, 3);
+            }} else {{
+                zoom = Math.max(zoom - 0.1, 0.25);
+            }}
+            updateZoom();
+        }});
+    </script>
+</body>
+</html>"""
+
+        self.wfile.write(html.encode("utf-8"))
 
     def serve_session(self):
         """Serve session path as JSON."""
@@ -95,6 +256,11 @@ class ProgressHandler(BaseHTTPRequestHandler):
         client = {"wfile": self.wfile, "connected": True}
         self.clients.append(client)
 
+        print(f"[SSE] Client connected, sending init state")
+        print(
+            f"[SSE] Current tasks: {[(t['num'], t['status']) for t in ProgressHandler.progress_state['tasks']]}"
+        )
+
         # Send initial state
         self.send_sse_event("init", ProgressHandler.progress_state)
 
@@ -103,6 +269,7 @@ class ProgressHandler(BaseHTTPRequestHandler):
             while client["connected"]:
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
+            print(f"[SSE] Client disconnected")
             client["connected"] = False
 
         # Remove client on disconnect
@@ -137,12 +304,18 @@ class ProgressHandler(BaseHTTPRequestHandler):
         event_type = data.get("type", "update")
         message = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
+        connected_count = sum(1 for c in cls.clients if c.get("connected", False))
+        print(
+            f"[Broadcast] {event_type} → {connected_count}/{len(cls.clients)} clients connected"
+        )
+
         for client in cls.clients[:]:
             if client["connected"]:
                 try:
                     client["wfile"].write(message.encode("utf-8"))
                     client["wfile"].flush()
                 except (BrokenPipeError, ConnectionResetError):
+                    print(f"[Broadcast] Client disconnected")
                     client["connected"] = False
 
     def get_dashboard_html(self) -> str:
@@ -427,6 +600,14 @@ class ProgressHandler(BaseHTTPRequestHandler):
             border: none;
         }
         
+        #mapFrame:not([src]) {
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+        
         .spinner {
             display: inline-block;
             width: 16px;
@@ -441,9 +622,161 @@ class ProgressHandler(BaseHTTPRequestHandler):
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-    </style>
+    
+        .searching-items {
+            padding: 16px 20px;
+            background: #e7f3ff;
+            border: 1px solid #007bff;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .searching-items h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        
+        .item-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .item-tag {
+            padding: 6px 12px;
+            background: #e9ecef;
+            border-radius: 16px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .item-tag.searching {
+            background: #e7f3ff;
+            color: #007bff;
+        }
+        
+        .item-tag.found {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+        
+        .item-tag.missing {
+            background: #ffebee;
+            color: #f44336;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+        }
+        
+        .btn-info:hover {
+            background: #138496;
+        }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+        }
+        
+        .modal-close:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .items-table th,
+        .items-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .items-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .items-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .items-summary {
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .items-summary strong {
+            font-size: 16px;
+            color: #1a1a1a;
+        }
+</style>
 </head>
 <body>
+    <div class="searching-items" id="searchingItems" style="display: none;">
+        <h3>🔍 Searching for:</h3>
+        <div class="item-tags" id="itemTags"></div>
+    </div>
+
     <h1>🎯 Target Shopper</h1>
     <p class="subtitle">Grocery Route Optimizer - Progress Dashboard</p>
     
@@ -465,7 +798,8 @@ class ProgressHandler(BaseHTTPRequestHandler):
     <div class="final-actions" id="finalActions">
         <h2>✅ Workflow Complete!</h2>
         <p id="finalSummary"></p>
-        <button class="btn btn-success" onclick="openMapOverlay()">🗺️ View Interactive Map</button>
+        <button class="btn btn-success" onclick="openMapOverlay()">🗺️ View Map</button>
+        <button class="btn btn-info" onclick="openItemsModal()" id="viewItemsBtn">📋 View Items & Prices</button>
         <button class="btn btn-close" onclick="closeWindow()">✕ Close</button>
     </div>
     
@@ -496,6 +830,8 @@ class ProgressHandler(BaseHTTPRequestHandler):
         eventSource.addEventListener('update', (event) => {
             const data = JSON.parse(event.data);
             handleUpdate(data);
+            // Recalculate progress from task statuses
+            updateProgressFromTasks();
         });
         
         eventSource.addEventListener('task_start', (event) => {
@@ -506,6 +842,7 @@ class ProgressHandler(BaseHTTPRequestHandler):
         
         eventSource.addEventListener('task_complete', (event) => {
             const data = JSON.parse(event.data);
+            console.log('Task complete:', data.taskNum, data.message);
             updateTaskStatus(data.taskNum, 'complete', data.message);
             updateProgressFromTasks();
         });
@@ -531,6 +868,9 @@ class ProgressHandler(BaseHTTPRequestHandler):
         
         eventSource.addEventListener('complete', (event) => {
             const data = JSON.parse(event.data);
+            // Mark task 6 as complete
+            updateTaskStatus(6, 'complete', 'Done');
+            updateProgressFromTasks();
             showFinalActions(data);
         });
         
@@ -538,6 +878,154 @@ class ProgressHandler(BaseHTTPRequestHandler):
             const data = JSON.parse(event.data);
             addLogEntry(data.message, 'error');
         });
+        
+        eventSource.addEventListener('items_set', (event) => {
+            const data = JSON.parse(event.data);
+            displayItems(data.items);
+        });
+        
+        eventSource.addEventListener('items_updated', (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Items updated:', data.results);
+            updateItemsWithResults(data.results);
+            // Store for modal access
+            window.itemsData = data.results;
+        });
+        
+        eventSource.addEventListener('items_set', (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Items set:', data.items);
+            displayItems(data.items);
+            // Initialize empty items data
+            window.itemsData = [];
+        });
+        
+        function displayItems(items) {
+            const container = document.getElementById('searchingItems');
+            const tagsContainer = document.getElementById('itemTags');
+            
+            if (!container || !tagsContainer) return;
+            
+            container.style.display = 'block';
+            tagsContainer.innerHTML = '';
+            
+            items.forEach((item, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'item-tag searching';
+                tag.id = `item-tag-${index}`;
+                tag.innerHTML = `<span>⏳</span> <span>${item}</span>`;
+                tagsContainer.appendChild(tag);
+            });
+            
+            // Show View Items button immediately
+            const viewItemsBtn = document.getElementById('viewItemsBtn');
+            if (viewItemsBtn) {
+                viewItemsBtn.style.display = 'inline-block';
+            }
+        }
+        
+        function updateItemsWithResults(results) {
+            const tagsContainer = document.getElementById('itemTags');
+            const viewItemsBtn = document.getElementById('viewItemsBtn');
+            
+            if (!tagsContainer) return;
+            
+            results.forEach((result, index) => {
+                const tag = document.getElementById(`item-tag-${index}`);
+                if (tag) {
+                    if (result.available) {
+                        tag.className = 'item-tag found';
+                        tag.innerHTML = `<span>✅</span> <span>${result.item}</span>`;
+                    } else {
+                        tag.className = 'item-tag missing';
+                        tag.innerHTML = `<span>❌</span> <span>${result.item}</span>`;
+                    }
+                }
+            });
+            
+            // Show View Items button
+            if (viewItemsBtn) {
+                viewItemsBtn.style.display = 'inline-block';
+                populateItemsTable(results);
+            }
+        }
+        
+        function populateItemsTable(results) {
+            const tbody = document.getElementById('itemsTableBody');
+            const summary = document.getElementById('itemsSummary');
+            
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            let totalCost = 0;
+            let foundCount = 0;
+            
+            results.forEach(result => {
+                const row = document.createElement('tr');
+                
+                const status = result.available ? 
+                    '<span style="color: #4caf50;">✅ Found</span>' : 
+                    '<span style="color: #f44336;">❌ Not found</span>';
+                
+                const price = result.price ? `$${result.price.toFixed(2)}` : 'N/A';
+                const aisle = result.aisle || 'N/A';
+                const productUrl = result.product_url || '#';
+                const productLink = result.available && productUrl !== '#' ? 
+                    `<a href="${productUrl}" target="_blank" style="color: #007bff; text-decoration: none;">🔗 View</a>` : 
+                    'N/A';
+                
+                if (result.available) {
+                    totalCost += result.price || 0;
+                    foundCount++;
+                }
+                
+                row.innerHTML = `
+                    <td>${result.item}</td>
+                    <td>${aisle}</td>
+                    <td>${price}</td>
+                    <td>${productLink}</td>
+                    <td>${status}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            if (summary) {
+                summary.innerHTML = `
+                    <strong>Found: ${foundCount}/${results.length} items | Total: $${totalCost.toFixed(2)}</strong>
+                `;
+            }
+        }
+        
+        function openItemsModal() {
+            const modal = document.getElementById('itemsModal');
+            if (modal) {
+                console.log('Opening items modal');
+                // Populate with stored data if available
+                if (window.itemsData && window.itemsData.length > 0) {
+                    populateItemsTable(window.itemsData);
+                }
+                modal.style.display = 'flex';
+            } else {
+                console.error('Items modal not found');
+            }
+        }
+        
+        function closeItemsModal() {
+            const modal = document.getElementById('itemsModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('itemsModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
         
         function handleUpdate(data) {
             if (data.progress !== undefined) {
@@ -547,6 +1035,11 @@ class ProgressHandler(BaseHTTPRequestHandler):
                 tasks = data.tasks;
                 renderTasks();
             }
+        }
+        
+        // Force progress update after any task change
+        function forceProgressUpdate() {
+            updateProgressFromTasks();
         }
         
         function updateProgressBar(progress, message) {
@@ -568,6 +1061,12 @@ class ProgressHandler(BaseHTTPRequestHandler):
                 if (iconEl) {
                     iconEl.innerHTML = getTaskIcon(status);
                 }
+            }
+            // Also update tasks array for progress calculation
+            const task = tasks.find(t => t.num === taskNum);
+            if (task) {
+                task.status = status;
+                task.message = message || getStatusText(status);
             }
         }
         
@@ -630,8 +1129,41 @@ class ProgressHandler(BaseHTTPRequestHandler):
             // Open map in overlay modal
             const overlay = document.getElementById('mapOverlay');
             const frame = document.getElementById('mapFrame');
-            frame.src = '/map/';
+            
+            console.log('Opening map overlay...');
+            console.log('Map frame exists:', frame !== null);
+            console.log('Overlay exists:', overlay !== null);
+            
+            if (!frame || !overlay) {
+                console.error('Map frame or overlay not found in DOM');
+                alert('Map container not found. Please refresh the page.');
+                return;
+            }
+            
+            // Clear previous src to force reload
+            frame.src = '';
+            
+            // Add load event handlers BEFORE setting src
+            frame.onload = () => {
+                console.log('✓ Map loaded successfully');
+                console.log('  Frame URL:', frame.src);
+                console.log('  Frame content window:', frame.contentWindow !== null);
+            };
+            
+            frame.onerror = () => {
+                console.error('✗ Map load error');
+                alert('Map could not be loaded. Please check the browser console for details.');
+            };
+            
+            // Add timestamp to prevent caching
+            const mapUrl = '/map/?t=' + Date.now();
+            console.log('Loading map from:', mapUrl);
+            
+            // Set src and show overlay
+            frame.src = mapUrl;
             overlay.style.display = 'flex';
+            
+            console.log('Overlay display set to flex');
         }
         
         function closeMapOverlay() {
@@ -648,16 +1180,41 @@ class ProgressHandler(BaseHTTPRequestHandler):
         // Initialize with default tasks
         tasks = [
             { num: 1, name: 'Store Configuration', status: 'pending' },
-            { num: 2, name: 'Parallel Item Search', status: 'pending' },
-            { num: 3, name: 'Load Cached Store Map', status: 'pending' },
-            { num: 4, name: 'Route Optimizer', status: 'pending' },
-            { num: 5, name: 'Route Visualizer', status: 'pending' },
-            { num: 6, name: 'Report Generator', status: 'pending' },
-            { num: 7, name: 'HTML Map Generator', status: 'pending' },
-            { num: 8, name: 'Output Summary', status: 'pending' }
+            { num: 2, name: 'Item Search', status: 'pending' },
+            { num: 3, name: 'Load Store Map', status: 'pending' },
+            { num: 4, name: 'Route Optimization', status: 'pending' },
+            { num: 5, name: 'Generate Outputs', status: 'pending' },
+            { num: 6, name: 'Complete', status: 'pending' }
         ];
         renderTasks();
     </script>
+
+    <!-- Items Modal -->
+    <div id="itemsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📋 Items & Prices</h3>
+                <button class="modal-close" onclick="closeItemsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Aisle</th>
+                            <th>Price</th>
+                            <th>Product</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsTableBody">
+                    </tbody>
+                </table>
+                <div class="items-summary" id="itemsSummary">
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>"""
 
@@ -678,13 +1235,11 @@ class ProgressServer:
             "message": "Initializing...",
             "tasks": [
                 {"num": 1, "name": "Store Configuration", "status": "pending"},
-                {"num": 2, "name": "Parallel Item Search", "status": "pending"},
-                {"num": 3, "name": "Load Cached Store Map", "status": "pending"},
-                {"num": 4, "name": "Route Optimizer", "status": "pending"},
-                {"num": 5, "name": "Route Visualizer", "status": "pending"},
-                {"num": 6, "name": "Report Generator", "status": "pending"},
-                {"num": 7, "name": "HTML Map Generator", "status": "pending"},
-                {"num": 8, "name": "Output Summary", "status": "pending"},
+                {"num": 2, "name": "Item Search", "status": "pending"},
+                {"num": 3, "name": "Load Store Map", "status": "pending"},
+                {"num": 4, "name": "Route Optimization", "status": "pending"},
+                {"num": 5, "name": "Generate Outputs", "status": "pending"},
+                {"num": 6, "name": "Complete", "status": "pending"},
             ],
             "logs": [],
             "complete": False,
@@ -726,6 +1281,7 @@ class ProgressServer:
         if self.server:
             self.server.shutdown()
             self.thread.join(timeout=2)
+            self.server.server_close()
 
     def update(
         self,
@@ -787,6 +1343,18 @@ class ProgressServer:
         """Set the session folder path for final report access."""
         self.session_path = str(path)
         ProgressHandler.progress_state["session_path"] = str(path)
+
+    def set_items(self, items: list):
+        """Set the list of items being searched."""
+        self.items = items
+        ProgressHandler.progress_state["items"] = items
+        # Broadcast to connected clients
+        ProgressHandler.broadcast_update({"type": "items_set", "items": items})
+
+    def update_items_with_results(self, results: list):
+        """Update items with search results."""
+        ProgressHandler.progress_state["search_results"] = results
+        ProgressHandler.broadcast_update({"type": "items_updated", "results": results})
 
     def complete(self, summary: str = None):
         """Mark workflow as complete."""

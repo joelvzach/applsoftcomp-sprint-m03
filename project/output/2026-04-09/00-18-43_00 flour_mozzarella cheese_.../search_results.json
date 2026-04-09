@@ -1,0 +1,23 @@
+[
+  {
+    "item": "00 flour",
+    "available": true,
+    "aisle": "A1",
+    "price": 1.58,
+    "product_url": "https://www.target.com/p/00-flour/-/A12345678"
+  },
+  {
+    "item": "mozzarella cheese",
+    "available": true,
+    "aisle": "B21",
+    "price": 8.14,
+    "product_url": "https://www.target.com/p/mozzarella-cheese/-/A12345678"
+  },
+  {
+    "item": "san marzano tomatoes",
+    "available": true,
+    "aisle": "B21",
+    "price": 8.05,
+    "product_url": "https://www.target.com/p/san-marzano-tomatoes/-/A12345678"
+  }
+]

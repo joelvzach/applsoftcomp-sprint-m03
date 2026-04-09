@@ -1,0 +1,16 @@
+[
+  {
+    "item": "eggs",
+    "available": true,
+    "aisle": "D8",
+    "price": 6.2,
+    "product_url": "https://www.target.com/p/eggs/-/A12345678"
+  },
+  {
+    "item": "milk",
+    "available": true,
+    "aisle": "A1",
+    "price": 4.37,
+    "product_url": "https://www.target.com/p/milk/-/A12345678"
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "item": "flour",
+    "available": true,
+    "aisle": "D1",
+    "price": 3.75,
+    "product_url": "https://www.target.com/p/flour/-/A00134152"
+  },
+  {
+    "item": "cheese",
+    "available": true,
+    "aisle": "A4",
+    "price": 5.16,
+    "product_url": "https://www.target.com/p/cheese/-/A72847929"
+  },
+  {
+    "item": "tomatoes",
+    "available": true,
+    "aisle": "D1",
+    "price": 2.68,
+    "product_url": "https://www.target.com/p/tomatoes/-/A45581563"
+  }
+]
