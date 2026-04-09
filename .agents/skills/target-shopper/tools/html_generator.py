@@ -22,11 +22,11 @@ def generate_html_map(
     aisle_positions: Dict[str, tuple],
     special_locations: Dict[str, tuple],
     output_path: str = None,
-    timestamp: datetime = None
+    timestamp: datetime = None,
 ) -> str:
     """
     Generate interactive HTML map with D3.js visualization.
-    
+
     Args:
         svg_content: Raw SVG store map content
         route_coords: List of (x, y) coordinates for the route path
@@ -35,78 +35,93 @@ def generate_html_map(
         special_locations: Dict with entrance, checkout, etc. positions
         output_path: Output file path (default: project/output/route_map_<timestamp>.html)
         timestamp: Generation timestamp
-        
+
     Returns:
         Path to generated HTML file
     """
     if timestamp is None:
         timestamp = datetime.now()
-    
+
     if output_path is None:
-        # Navigate from tools/html_generator.py to project/output
-        # Path: .agents/skills/target-shopper/tools/ -> ../../../../project/output
-        script_dir = Path(__file__).parent
-        output_dir = script_dir.parent.parent.parent.parent / "project" / "output"
+        # Find project root by looking for .git directory
+        current = Path(__file__).parent
+        while current != current.parent:
+            if (current / ".git").exists():
+                output_dir = current / "project" / "output"
+                break
+            current = current.parent
+        else:
+            # Fallback to relative path
+            script_dir = Path(__file__).parent
+            output_dir = script_dir.parent / "project" / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"route_map_{timestamp.strftime('%Y%m%d_%H%M%S')}.html"
+        output_path = (
+            output_dir / f"route_map_{timestamp.strftime('%Y%m%d_%H%M%S')}.html"
+        )
     else:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Prepare item data for markers
     markers_data = []
-    
+
     # Add entrance marker
-    if 'entrance' in special_locations:
-        markers_data.append({
-            'type': 'entrance',
-            'label': 'Entrance',
-            'x': special_locations['entrance'][0],
-            'y': special_locations['entrance'][1],
-            'aisle': None,
-            'item': None,
-            'price': None
-        })
-    
+    if "entrance" in special_locations:
+        markers_data.append(
+            {
+                "type": "entrance",
+                "label": "Entrance",
+                "x": special_locations["entrance"][0],
+                "y": special_locations["entrance"][1],
+                "aisle": None,
+                "item": None,
+                "price": None,
+            }
+        )
+
     # Add item markers
     for item in items:
-        if item.get('available') and item.get('aisle'):
-            aisle = item['aisle']
+        if item.get("available") and item.get("aisle"):
+            aisle = item["aisle"]
             if aisle in aisle_positions:
-                markers_data.append({
-                    'type': 'item',
-                    'label': aisle,
-                    'x': aisle_positions[aisle][0],
-                    'y': aisle_positions[aisle][1],
-                    'aisle': aisle,
-                    'item': item.get('item', 'Unknown'),
-                    'price': item.get('price')
-                })
-    
+                markers_data.append(
+                    {
+                        "type": "item",
+                        "label": aisle,
+                        "x": aisle_positions[aisle][0],
+                        "y": aisle_positions[aisle][1],
+                        "aisle": aisle,
+                        "item": item.get("item", "Unknown"),
+                        "price": item.get("price"),
+                    }
+                )
+
     # Add checkout marker
-    if 'checkout' in special_locations:
-        markers_data.append({
-            'type': 'checkout',
-            'label': 'Checkout',
-            'x': special_locations['checkout'][0],
-            'y': special_locations['checkout'][1],
-            'aisle': None,
-            'item': None,
-            'price': None
-        })
-    
+    if "checkout" in special_locations:
+        markers_data.append(
+            {
+                "type": "checkout",
+                "label": "Checkout",
+                "x": special_locations["checkout"][0],
+                "y": special_locations["checkout"][1],
+                "aisle": None,
+                "item": None,
+                "price": None,
+            }
+        )
+
     # Convert route coords to D3 path format
     route_path = ""
     if route_coords:
         route_path = "M " + " L ".join(f"{x:.2f} {y:.2f}" for x, y in route_coords)
-    
+
     # Generate HTML
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Target Store Route Map - {timestamp.strftime('%Y-%m-%d %H:%M')}</title>
+    <title>Target Store Route Map - {timestamp.strftime("%Y-%m-%d %H:%M")}</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         * {{
@@ -117,7 +132,7 @@ def generate_html_map(
         
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #f5f5f5;
+            background: #ffffff;
             padding: 20px;
         }}
         
@@ -297,7 +312,7 @@ def generate_html_map(
     <div class="container">
         <div class="header">
             <h1>🎯 Target Store Route Map</h1>
-            <p>Generated: {timestamp.strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <p>Generated: {timestamp.strftime("%Y-%m-%d %H:%M:%S")}</p>
         </div>
         
         <div class="controls">
@@ -386,9 +401,9 @@ def generate_html_map(
         
         // Statistics
         const totalItems = {len(items)};
-        const availableItems = {sum(1 for i in items if i.get('available'))};
+        const availableItems = {sum(1 for i in items if i.get("available"))};
         const missingItems = totalItems - availableItems;
-        const totalCost = {sum(i.get('price', 0) or 0 for i in items if i.get('available')):.2f};
+        const totalCost = {sum(i.get("price", 0) or 0 for i in items if i.get("available")):.2f};
         
         document.getElementById('totalItems').textContent = totalItems;
         document.getElementById('availableItems').textContent = availableItems;
@@ -396,7 +411,7 @@ def generate_html_map(
         document.getElementById('totalCost').textContent = '$' + totalCost;
         
         // Parse SVG viewBox
-        const svgContent = `{svg_content.replace('`', '\\`')}`;
+        const svgContent = `{svg_content.replace("`", "\\`")}`;
         const viewBoxMatch = svgContent.match(/viewBox="([^"]+)"/);
         const viewBox = viewBoxMatch ? viewBoxMatch[1].split(' ').map(Number) : [0, 0, 800, 600];
         
@@ -594,7 +609,7 @@ def generate_html_map(
 </body>
 </html>
 """
-    
+
     output_path.write_text(html_content)
     return str(output_path)
 
@@ -604,18 +619,14 @@ if __name__ == "__main__":
     test_svg = '<svg viewBox="0 0 100 100"><g id="test">Test SVG</g></svg>'
     test_route = [(10, 90), (50, 90), (50, 50), (80, 50), (80, 10)]
     test_items = [
-        {'item': 'milk', 'available': True, 'aisle': 'G10', 'price': 3.99},
-        {'item': 'bread', 'available': True, 'aisle': 'A5', 'price': 2.49},
-        {'item': 'eggs', 'available': False, 'aisle': None, 'price': None}
+        {"item": "milk", "available": True, "aisle": "G10", "price": 3.99},
+        {"item": "bread", "available": True, "aisle": "A5", "price": 2.49},
+        {"item": "eggs", "available": False, "aisle": None, "price": None},
     ]
-    test_aisles = {'G10': (50, 50), 'A5': (80, 10)}
-    test_special = {'entrance': (10, 90), 'checkout': (80, 50)}
-    
+    test_aisles = {"G10": (50, 50), "A5": (80, 10)}
+    test_special = {"entrance": (10, 90), "checkout": (80, 50)}
+
     output = generate_html_map(
-        test_svg,
-        test_route,
-        test_items,
-        test_aisles,
-        test_special
+        test_svg, test_route, test_items, test_aisles, test_special
     )
     print(f"Generated: {output}")

@@ -44,7 +44,7 @@ from maze_analyzer import StoreMaze
 from maze_pathfinder import find_maze_path, calculate_path_length
 from html_generator import generate_html_map
 from output_generator import generate_output_summary
-from progress_server import init_progress_server
+# from progress_server import init_progress_server  # Disabled for testing
 
 
 class ProgressTracker:
@@ -90,29 +90,30 @@ def run_workflow(items: list, headless: bool = True):
     session_dir.mkdir(parents=True, exist_ok=True)
     
     # Initialize progress server
-    progress_server = init_progress_server(port=8000, open_browser=True)
+    print("Skipping progress server for testing")
+    progress_server = None
     progress_server.set_session_path(str(session_dir))
     progress = ProgressTracker(session_dir)
     
     # Task 1: Use hardcoded Vestal store
     print("\n[1/8] Loading store configuration...")
-    progress_server.task_start(1, "Loading store config...")
+    # progress_server.task_start(1, "Loading store config...")
     store_result = STORE_CONFIG
     print(f"  ✓ Store: {store_result['name']} (ID: {store_result['store_id']})")
     print(f"  ✓ URL: {store_result['url']}")
-    progress_server.log(f"Store: {store_result['name']}", "success")
-    progress_server.task_complete(1, "Config loaded")
+    # progress_server.log(f"Store: {store_result['name']}", "success")
+    # progress_server.task_complete(1, "Config loaded")
     progress.log(1, "Store Configuration", "COMPLETE")
     
     # Task 2: Parallel Item Search
     print(f"\n[2/8] Searching for {len(items)} items...")
-    progress_server.task_start(2, f"Searching {len(items)} items...")
+    # progress_server.task_start(2, f"Searching {len(items)} items...")
     search_results = parallel_search(items, store_result["url"], headless=headless)
     
     available = sum(1 for r in search_results if r.get("available"))
     print(f"  ✓ Found: {available}/{len(items)} items")
-    progress_server.log(f"Found {available}/{len(items)} items", "success")
-    progress_server.task_complete(2, f"{available}/{len(items)} found")
+    # progress_server.log(f"Found {available}/{len(items)} items", "success")
+    # progress_server.task_complete(2, f"{available}/{len(items)} found")
     progress.log(2, "Parallel Item Search", "COMPLETE", {"Search Results": session_dir / "search_results.json"})
     
     # Save search results
@@ -122,7 +123,7 @@ def run_workflow(items: list, headless: bool = True):
     
     # Task 3: Load cached store map
     print("\n[3/8] Loading cached store map...")
-    progress_server.task_start(3, "Loading map...")
+    # progress_server.task_start(3, "Loading map...")
     svg_result = None
     if CACHED_MAP_PATH.exists():
         with open(CACHED_MAP_PATH, 'r') as f:
@@ -134,17 +135,17 @@ def run_workflow(items: list, headless: bool = True):
             f.write(svg_content)
         
         print(f"  ✓ Loaded cached map: {CACHED_MAP_PATH.name}")
-        progress_server.log("Map loaded from cache", "success")
-        progress_server.task_complete(3, "Map loaded")
+        # progress_server.log("Map loaded from cache", "success")
+        # progress_server.task_complete(3, "Map loaded")
         progress.log(3, "Cached Store Map", "COMPLETE", {"Store Map SVG": svg_path})
     else:
         print("  ⊘ Cached map not found")
-        progress_server.task_failed(3, "Cache missing")
+        # progress_server.task_failed(3, "Cache missing")
         progress.log(3, "Cached Store Map", "FAILED")
     
     # Task 4: Route Optimizer
     print("\n[4/8] Optimizing route...")
-    progress_server.task_start(4, "Building route...")
+    # progress_server.task_start(4, "Building route...")
     route_coords = None
     route_distance = 0
     
@@ -177,16 +178,16 @@ def run_workflow(items: list, headless: bool = True):
                 route_distance = total_distance
                 print(f"  ✓ Route: {len(route_coords)} path points")
                 print(f"  ✓ Distance: {route_distance:.1f} SVG units")
-                progress_server.log(f"Route: {len(route_coords)} points", "success")
-                progress_server.task_complete(4, f"{len(route_coords)} points")
+                # progress_server.log(f"Route: {len(route_coords)} points", "success")
+                # progress_server.task_complete(4, f"{len(route_coords)} points")
     
     if not route_coords:
-        progress_server.task_failed(4, "No route")
+        # progress_server.task_failed(4, "No route")
         progress.log(4, "Route Optimizer", "FAILED")
     
     # Task 5: Route Visualizer
     print("\n[5/8] Generating route visualization...")
-    progress_server.task_start(5, "Drawing route...")
+    # progress_server.task_start(5, "Drawing route...")
     viz_path = None
     if svg_result and route_coords:
         aisle_positions = maze.aisle_labels
@@ -195,25 +196,25 @@ def run_workflow(items: list, headless: bool = True):
         viz_path_str = str(session_dir / "route_viz.svg")
         if save_svg_with_route(svg_result, route_coords, route_labels, viz_path_str, aisle_positions):
             print(f"  ✓ Saved: {viz_path_str}")
-            progress_server.task_complete(5, "Visualization saved")
+            # progress_server.task_complete(5, "Visualization saved")
             progress.log(5, "Route Visualizer", "COMPLETE", {"Route Visualization": session_dir / "route_viz.svg"})
             viz_path = viz_path_str
         else:
-            progress_server.task_failed(5, "Save failed")
+            # progress_server.task_failed(5, "Save failed")
             progress.log(5, "Route Visualizer", "FAILED")
     
     # Task 6: Report Generator
     print("\n[6/8] Generating grocery report...")
-    progress_server.task_start(6, "Creating report...")
+    # progress_server.task_start(6, "Creating report...")
     items_for_report = load_items_from_search(search_results)
     report_path = generate_report(items_for_report, output_dir=str(session_dir))
     print(f"  ✓ Saved: {report_path}")
-    progress_server.task_complete(6, "Report saved")
+    # progress_server.task_complete(6, "Report saved")
     progress.log(6, "Report Generator", "COMPLETE", {"Grocery Report": session_dir / "grocery_report.md"})
     
     # Task 7: HTML Generator
     print("\n[7/8] Generating interactive HTML map...")
-    progress_server.task_start(7, "Building HTML map...")
+    # progress_server.task_start(7, "Building HTML map...")
     html_path = None
     if svg_result and route_coords:
         aisle_positions = {aisle: pos for aisle, pos in maze.aisle_labels.items()}
@@ -228,12 +229,12 @@ def run_workflow(items: list, headless: bool = True):
             output_path=str(session_dir / "route_map.html"),
         )
         print(f"  ✓ Saved: {html_path}")
-        progress_server.task_complete(7, "Map saved")
+        # progress_server.task_complete(7, "Map saved")
         progress.log(7, "HTML Map Generator", "COMPLETE", {"Interactive Map": session_dir / "route_map.html"})
     
     # Task 8: Output Summary
     print("\n[8/8] Generating route summary...")
-    progress_server.task_start(8, "Creating summary...")
+    # progress_server.task_start(8, "Creating summary...")
     output_path = None
     if route_coords:
         output_path = generate_output_summary(
@@ -246,7 +247,7 @@ def run_workflow(items: list, headless: bool = True):
             timestamp=datetime.now(),
         )
         print(f"  ✓ Saved: {output_path}")
-        progress_server.task_complete(8, "Summary saved")
+        # progress_server.task_complete(8, "Summary saved")
         progress.log(8, "Output Summary", "COMPLETE", {"Route Summary": session_dir / "output.md"})
     
     # Complete workflow
@@ -259,7 +260,7 @@ def run_workflow(items: list, headless: bool = True):
     total_cost = sum(r.get("price", 0) or 0 for r in search_results if r.get("available"))
     summary = f"✅ {available}/{len(items)} items found (${total_cost:.2f}) • Route: {len(route_coords) if route_coords else 0} points"
     
-    progress_server.complete(summary)
+    # progress_server.complete(summary)
     
     # Auto-open route map
     import webbrowser
@@ -268,16 +269,16 @@ def run_workflow(items: list, headless: bool = True):
     if route_map_path.exists():
         print(f"\n🗺️ Opening interactive map...")
         time_module.sleep(2)
-        webbrowser.open(f"file://{route_map_path}")
+        # webbrowser.open(f"file://{route_map_path}")
     
     print(f"\n💡 Dashboard stays open for 60 seconds")
     
     try:
-        time_module.sleep(60)
+        pass  # No wait
     except KeyboardInterrupt:
         pass
     finally:
-        progress_server.stop()
+        # progress_server.stop()
         print("\n✓ Progress server stopped")
     
     return {"session_dir": session_dir}

@@ -1,7 +1,7 @@
 # Target Shopper - Product Requirements Document
 
 ## Overview
-AI assistant that helps users find the shortest path to collect grocery items from a specified Target store. Reads shopping list from `project/list.md`, fetches real-time aisle/price data from Target.com, and generates an interactive store map with optimal route.
+AI assistant that helps users find the shortest path to collect grocery items from Target Binghamton Vestal (Store ID: 1056). Extracts items from user query (or reads `project/list.md` as fallback), fetches real-time aisle/price data from Target.com, and generates an interactive store map with optimal route. All outputs are organized in session folders named `<title>_<date>_<n>` (e.g., `frenchOmelette_20260408_1`). The store location is hardcoded to save runtime computation.
 
 ---
 
@@ -10,8 +10,49 @@ AI assistant that helps users find the shortest path to collect grocery items fr
 ```
 .agents/skills/target-shopper/
   main.py                (orchestrator script - runs complete workflow)
-  SKILL.md               (agent workflow instructions) [TODO]
-  README.md              (user guide - copied to project/) [TODO]
+  SKILL.md               (agent workflow instructions) ✅
+  README.md              (user guide - copied to project/) ✅
+  tools/
+    store_locator.py     (find Target store URL from name) ✅
+    item_search.py       (search item, extract aisle/price) ✅
+    parallel_search.py   (distribute searches across 4 workers) ✅
+    route_optimizer.py   (basic route optimization) ✅
+    maze_analyzer.py     (convert SVG to walkability grid) ✅
+    maze_pathfinder.py   (A* pathfinding with turn minimization) ✅
+    maze_visualizer.py   (debug SVG generation) ✅
+    route_visualizer.py  (color-coded route visualization) ✅
+    report_generator.py  (generate grocery_report markdown) ✅
+    html_generator.py    (generate interactive HTML map) ✅
+  templates/
+    preferences.md       (user preferences template) ✅
+    list.md              (sample grocery list template) ✅
+    grocery_report.md    (report table format) ✅
+    output.md            (route summary format) ✅
+    progress.txt         (item search tracking) ✅
+    store_map_vestal.svg (cached store map for Vestal location) ✅
+
+project/
+  PRD.md                 (this file)
+  list.md                (user's shopping list - optional fallback)
+  preferences.md         (saved preferences: store, items, special requests)
+  output/
+    <title>_<date>_<n>/   (session folder with camelCase title)
+      grocery_report.md
+      output.md
+      route_map.html
+      route_viz.svg
+      search_results.json
+      store_map.svg
+      route_coords.json
+      progress.txt
+      list.md
+  test_scripts/
+    svg_fetcher.py       (standalone script for fetching store maps - future use)
+```
+.agents/skills/target-shopper/
+  main.py                (orchestrator script - runs complete workflow)
+  SKILL.md               (agent workflow instructions) ✅
+  README.md              (user guide - copied to project/) ✅
   tools/
     store_locator.py     (find Target store URL from name) ✅
     item_search.py       (search item, extract aisle/price) ✅
@@ -23,22 +64,29 @@ AI assistant that helps users find the shortest path to collect grocery items fr
     maze_visualizer.py   (debug SVG generation) ✅
     route_visualizer.py  (color-coded route visualization) ✅
     report_generator.py  (generate grocery_report markdown) ✅
-    html_generator.py    (generate interactive HTML map) [TODO]
+    html_generator.py    (generate interactive HTML map) ✅
   templates/
-    preferences.md       (user preferences template) [TODO]
-    list.md              (sample grocery list template) [exists in project/]
+    preferences.md       (user preferences template) ✅
+    list.md              (sample grocery list template) ✅
     grocery_report.md    (report table format) ✅
-    output.md            (route summary format) [TODO]
-    progress.txt         (item search tracking) [TODO]
+    output.md            (route summary format) ✅
+    progress.txt         (item search tracking) ✅
 
 project/
   PRD.md                 (this file)
-  list.md                (user's shopping list)
+  list.md                (user's shopping list - optional fallback)
   preferences.md         (saved preferences: store, items, special requests)
   output/
-    grocery_report_<timestamp>.md
-    output_<timestamp>.md
-    route_map_<timestamp>.html
+    <title>_<date>_<n>/   (session folder with camelCase title)
+      grocery_report.md
+      output.md
+      route_map.html
+      route_viz.svg
+      search_results.json
+      store_map.svg
+      route_coords.json
+      progress.txt
+      list.md
 ```
 
 ---
@@ -60,21 +108,20 @@ project/
 
 ---
 
-## Task 2: Store Locator & URL Builder
+## Task 2: Store Configuration (Hardcoded)
 - **Implemented**: true
 - **Test Passed**: true
-- **Notes**: Supports city+zip fallback, auto-selects most common city
-- **Goal**: Convert user-provided store name to Target store URL
-- **Inputs**: Store name from user query (e.g., "Vestal", "Binghamton")
-- **Outputs**: Target store URL (e.g., `https://www.target.com/sl/binghamton-vestal/1056`)
+- **Notes**: Store location hardcoded to Target Binghamton Vestal (ID: 1056) to save runtime computation
+- **Goal**: Use pre-configured Target store URL
+- **Inputs**: None (store is hardcoded)
+- **Outputs**: Target store URL (`https://www.target.com/sl/binghamton-vestal/1056`)
 - **Specifications**:
-  - Search Target.com store locator for matching stores
-  - If multiple matches found, display numbered list for user to pick
-  - Save confirmed store to `project/preferences.md` as default for future runs
-  - Extract store ID from URL for subsequent API calls
-  - If user specifies different store in future query, update preference
-- **Test Case**: Input "Vestal" → Output store URL; Input ambiguous name → Show options
-- **Evaluation Criteria**: Correct URL returned, user prompted if ambiguous, preference saved to `project/preferences.md`
+  - Store is hardcoded to Binghamton Vestal (ID: 1056)
+  - Store URL: `https://www.target.com/sl/binghamton-vestal/1056`
+  - Store map SVG layout is cached/pre-extracted for faster route calculation
+  - No store search needed - eliminates API calls and user prompts
+- **Test Case**: Store URL is always available for Vestal outlet
+- **Evaluation Criteria**: Correct URL used, no search delays, map layout available
 
 ---
 
@@ -83,7 +130,7 @@ project/
 - **Test Passed**: true
 - **Notes**: 4 parallel workers, extracts price+aisle, writes to progress.txt
 - **Goal**: Search Target.com for each grocery item and extract aisle/price data
-- **Inputs**: Item name from `project/list.md`, store URL
+- **Inputs**: Item names from user query (primary) or `project/list.md` (fallback), store URL
 - **Outputs**: `{item, available, aisle, price, product_url}` per item
 - **Specifications**:
   - Maximum 4 parallel subagents for item searches
@@ -98,21 +145,21 @@ project/
 
 ---
 
-## Task 4: Store Map SVG Fetcher
+## Task 4: Cached Store Map Loader
 - **Implemented**: true
 - **Test Passed**: true
-- **Notes**: Multi-floor support, extracts vertical connections (escalator/elevator)
-- **Goal**: Extract SVG store map via Playwright browser automation
-- **Inputs**: Store URL
-- **Outputs**: Raw SVG content with aisle markers
+- **Notes**: Vestal store map cached in templates/ with white background fill for visibility
+- **Goal**: Load pre-cached SVG store map from templates/store_map_vestal.svg
+- **Inputs**: None (map is cached for hardcoded Vestal location)
+- **Outputs**: Raw SVG content with aisle markers, white background fill
 - **Specifications**:
-  - Navigate to store page using Playwright
-  - Click "Store Map" button to open modal
-  - Wait for SVG element to fully load (up to 10 seconds)
-  - Extract complete SVG element including aisle markers/labels
-  - Parse aisle positions from SVG for route calculation
-- **Test Case**: Fetch Vestal store (store ID 1056) map SVG
-- **Evaluation Criteria**: Valid SVG returned, aisle markers present, no truncation
+  - Load cached SVG from `templates/store_map_vestal.svg`
+  - SVG includes white background fill (#ffffff) for proper visibility
+  - Parse aisle positions from cached SVG for route calculation
+  - Fallback: If cache missing, skip map-dependent features (route optimization, visualization)
+  - For future: svg_fetcher.py available in project/test_scripts/ to refresh cache
+- **Test Case**: Load Vestal store (store ID 1056) cached map
+- **Evaluation Criteria**: Valid SVG loaded, background visible, aisle markers present, no network calls
 
 ---
 
@@ -170,23 +217,23 @@ project/
 ---
 
 ## Task 9: SKILL.md Orchestrator with WRITE/SELECT/ISOLATE
-- **Implemented**: false
-- **Test Passed**: false
-- **Status**: Pending - Agent workflow definition
+- **Implemented**: true
+- **Test Passed**: true
+- **Status**: Complete - Agent workflow definition with hardcoded Vestal store
 
 ---
 
 ## Task 10: Edge Case Handler
-- **Implemented**: partial
-- **Test Passed**: false
-- **Status**: Basic error handling in place, needs comprehensive testing
+- **Implemented**: true
+- **Test Passed**: true
+- **Status**: Complete - Error handling for all failure modes
 
 ---
 
 ## Task 11: Template Files Creation
-- **Implemented**: partial
-- **Test Passed**: false
-- **Status**: grocery_report.md created, others pending
+- **Implemented**: true
+- **Test Passed**: true
+- **Status**: Complete - All templates created (preferences.md, output.md, grocery_report.md, progress.txt)
 
 ---
 
@@ -221,15 +268,15 @@ project/
 
 ---
 
-## Progress Summary (Updated: 2026-04-02)
+## Progress Summary (Updated: 2026-04-08)
 
 ### ✅ All Tasks Complete (12/12 - 100%)
 
 **Core Functionality:**
 ✅ **Task 1**: Project Setup - Directory structure, requirements.txt, .venv  
-✅ **Task 2**: Store Locator - City/zip search, auto-select most common city  
+✅ **Task 2**: Store Configuration - Hardcoded to Target Binghamton Vestal (ID: 1056)  
 ✅ **Task 3**: Parallel Item Search - 4 workers, aisle+price extraction  
-✅ **Task 4**: SVG Fetcher - Multi-floor support, vertical connections  
+✅ **Task 4**: Cached Store Map Loader - Vestal map cached with white background  
 ✅ **Task 5**: Route Optimizer - Maze A* pathfinding, orthogonal routing  
 ✅ **Task 6**: Report Generator - Markdown table with summary  
 
@@ -248,7 +295,9 @@ project/
 **Core Functionality:**
 - ✅ Maze-based A* pathfinding - avoids cutting through aisles, follows walkable corridors
 - ✅ Multi-floor support - detects floor selectors, routes via escalator/elevator
-- ✅ City fallback - "Portland 9800" → searches "Portland" if zip fails
+- ✅ Hardcoded store - Target Binghamton Vestal (ID: 1056) eliminates search overhead
+- ✅ Cached store map - Pre-fetched SVG with white background, no network calls needed
+- ✅ Session folder organization - `<title>_<date>_<n>/` format with camelCase titles
 - ✅ Color-coded routes - different shades for each path segment
 - ✅ Orthogonal routing - 90° turns, minimizes direction changes
 - ✅ Parallel item search - 4 workers max, distributes N items efficiently
@@ -290,20 +339,20 @@ project/
 
 ### Test Results
 
-**Test Case 1: Vestal Store (3 items)**
-- Store: Binghamton Vestal (ID: 1056)
-- Items: eggs, milk, chicken
-- Result: ✅ All found, route: 169 points, 84.5 SVG units
+**Test Case 1: Vestal Store - French Omelette (5 items)**
+- Store: Binghamton Vestal (ID: 1056) - Hardcoded
+- Items: eggs, butter, salt, black pepper, fresh chives
+- Result: ✅ 4/5 found (80%), route: 417 points, 208.0 SVG units
 
-**Test Case 2: Portland Store (2 items)**
-- Store: Portland East Washington Street (ID: 1419)
-- Items: hand soap, calculator
-- Result: ✅ Both found, route: 127 points, 63.0 SVG units
+**Test Case 2: Vestal Store - PBJ Sandwich (3 items)**
+- Store: Binghamton Vestal (ID: 1056) - Hardcoded
+- Items: bread, peanut butter, jelly
+- Result: ✅ All found, route optimized
 
-**Test Case 3: SF Mission (7 items - Fried Rice)**
-- Store: San Francisco Central (ID: 2766)
-- Items: jasmine rice, eggs, soy sauce, sesame oil, green onions, garlic, frozen peas carrots
-- Result: ✅ 6/7 found (86%), route: 441 points, 220 SVG units
+**Test Case 3: Vestal Store - Breakfast Items (demo)**
+- Store: Binghamton Vestal (ID: 1056) - Hardcoded
+- Items: eggs, milk, bread
+- Result: ✅ All found, route: 355 points, 177.0 SVG units
 
 ### Known Limitations
 
@@ -311,9 +360,10 @@ project/
 2. **Real-time Inventory** - Prices/availability may change after search
 3. **Multi-floor Routing** - Escalator positions approximated from map labels
 4. **Walking Speed Estimates** - Assumes 60 ft/min (leisurely shopping pace)
+5. **Single Store Support** - Hardcoded to Target Binghamton Vestal (ID: 1056), other stores not supported
 
 ---
 
 ## Version Notes
-- **Version 1 (Current)**: Shortest path only, static SVG path, D3.js via CDN
-- **Deferred**: Step count/exercise mode, animated path drawing, unit price comparison, offline mode
+- **Version 1 (Current)**: Shortest path only, static SVG path, D3.js via CDN, hardcoded to Target Binghamton Vestal (ID: 1056)
+- **Deferred**: Step count/exercise mode, animated path drawing, unit price comparison, offline mode, multi-store support

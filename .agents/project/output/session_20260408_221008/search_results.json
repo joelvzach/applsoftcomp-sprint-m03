@@ -1,0 +1,18 @@
+[
+  {
+    "item": "eggs",
+    "product_name": "Grade A Large Eggs - 12ct - Good & Gather\u2122 (Packaging May Vary)",
+    "available": true,
+    "aisle": "G44",
+    "price": 1.69,
+    "product_url": "https://www.target.com/p/grade-a-large-eggs-12ct-good-38-gather-8482-packaging-may-vary/-/A-14713534#lnk=sametab"
+  },
+  {
+    "item": "milk",
+    "product_name": "Vitamin D Whole Milk - 1gal - Good & Gather\u2122",
+    "available": true,
+    "aisle": "G44",
+    "price": 2.89,
+    "product_url": "https://www.target.com/p/milk-good-gather/-/A-94602358?preselect=13276134#lnk=sametab"
+  }
+]

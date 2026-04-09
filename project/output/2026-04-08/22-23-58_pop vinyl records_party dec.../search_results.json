@@ -1,0 +1,42 @@
+[
+  {
+    "item": "drinks",
+    "product_name": null,
+    "available": false,
+    "aisle": "N/A",
+    "price": "N/A",
+    "product_url": null
+  },
+  {
+    "item": "pop vinyl records",
+    "product_name": null,
+    "available": false,
+    "aisle": "N/A",
+    "price": "N/A",
+    "product_url": null
+  },
+  {
+    "item": "party decorations",
+    "product_name": null,
+    "available": false,
+    "aisle": "N/A",
+    "price": "N/A",
+    "product_url": null
+  },
+  {
+    "item": "snacks",
+    "product_name": "RITZ Fresh Stacks Original Crackers Travel Snacks - 11.8oz",
+    "available": true,
+    "aisle": "G33",
+    "price": 3.99,
+    "product_url": "https://www.target.com/p/ritz-original-crackers-fresh-stacks-11-8oz/-/A-14933672#lnk=sametab"
+  },
+  {
+    "item": "bluetooth speaker",
+    "product_name": "Portable Bluetooth Speaker - heyday\u2122 S",
+    "available": true,
+    "aisle": "F27",
+    "price": 19.99,
+    "product_url": "https://www.target.com/p/portable-bluetooth-speaker-heyday-s/-/A-95051990?preselect=94246152#lnk=sametab"
+  }
+]

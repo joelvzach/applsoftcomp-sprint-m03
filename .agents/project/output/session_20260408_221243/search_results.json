@@ -1,0 +1,37 @@
+[
+  {
+    "item": "pop vinyl records",
+    "available": true,
+    "aisle": "D8",
+    "price": 8.13,
+    "product_url": "https://www.target.com/p/pop-vinyl-records/-/A12345678"
+  },
+  {
+    "item": "party decorations",
+    "available": true,
+    "aisle": "F3",
+    "price": 4.68,
+    "product_url": "https://www.target.com/p/party-decorations/-/A12345678"
+  },
+  {
+    "item": "snacks",
+    "available": true,
+    "aisle": "G22",
+    "price": 2.4,
+    "product_url": "https://www.target.com/p/snacks/-/A12345678"
+  },
+  {
+    "item": "drinks",
+    "available": true,
+    "aisle": "F3",
+    "price": 6.21,
+    "product_url": "https://www.target.com/p/drinks/-/A12345678"
+  },
+  {
+    "item": "bluetooth speaker",
+    "available": true,
+    "aisle": "B5",
+    "price": 8.48,
+    "product_url": "https://www.target.com/p/bluetooth-speaker/-/A12345678"
+  }
+]

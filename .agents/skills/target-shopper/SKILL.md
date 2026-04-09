@@ -1,8 +1,13 @@
+---
+name: target-shopper
+description: Help users find the optimal path to collect grocery items from Target Binghamton Vestal. Extracts items from user query (or uses project/list.md as fallback), fetches aisle/price data from Target.com, and generates session folder with interactive store map and optimized route.
+---
+
 # Target Shopper AI Assistant - Skill Instructions
 
 ## Overview
 
-This skill helps users find the optimal path to collect grocery items from a specified Target store. It reads a shopping list, fetches real-time aisle/price data from Target.com, and generates an interactive store map with an optimized route.
+This skill helps users find the optimal path to collect grocery items from Target Binghamton Vestal (Store ID: 1056). It extracts items from user query (or reads `project/list.md` as fallback), fetches real-time aisle/price data from Target.com, and generates an interactive store map with optimized route. All outputs are organized in session folders: `project/output/<title>_<date>_<n>/`. The store location is hardcoded to save runtime computation.
 
 ---
 
@@ -11,10 +16,10 @@ This skill helps users find the optimal path to collect grocery items from a spe
 **Activate when user query contains:**
 - "Target" OR "store" OR "shopping" + route-related terms
 - Examples:
-  - "show me my target shopping grocery route at Vestal outlet"
+  - "show me my target shopping grocery route for eggs, milk, bread"
   - "generate my target route"
-  - "find items at Target Portland"
-  - "shopping list for Target"
+  - "find items at Target: butter, salt, chives"
+  - "shopping list for french omelette"
 
 ---
 
@@ -22,7 +27,7 @@ This skill helps users find the optimal path to collect grocery items from a spe
 
 **Before starting, save/update user preferences to `project/preferences.md`:**
 
-1. **Extract store preference** from user query (e.g., "Vestal", "Portland 9800")
+1. **Store is hardcoded** to Binghamton Vestal (ID: 1056) - no extraction needed
 2. **Extract item preferences** if mentioned (e.g., "always pick organic", "avoid brand X")
 3. **Extract special requests** (e.g., "keep cold items together", "budget under $50")
 4. **Save as bullet points** in free-form format (not key-value)
@@ -51,14 +56,21 @@ Example `project/preferences.md`:
 **Before responding, read relevant context:**
 
 1. **`project/preferences.md`** - Saved preferences and default store
-2. **`project/list.md`** - Shopping list (if not provided in query)
-3. **`project/output/`** - Recent outputs if user asks about past runs
+2. **`project/list.md`** - Shopping list (fallback if user didn't provide items)
+3. **`project/output/`** - Recent session folders if user asks about past runs
 4. **Previous reports** if user asks questions about historical data
 
-**If `project/list.md` is missing:**
-- Check if user provided items in the prompt
-- If yes, create `project/list.md` with provided items
-- If no, prompt user to provide shopping list
+**Item extraction priority:**
+1. Extract items directly from user query (primary)
+2. If no items in query, check `project/list.md` (fallback)
+3. If neither, prompt user to provide shopping list
+
+**Session folder naming:**
+- Format: `<camelCaseTitle>_<YYYYMMDD>_<n>/`
+- Title: Derived from items or user-provided context (e.g., "frenchOmelette")
+- Date: Current date in YYYYMMDD format
+- Sequence: Daily counter (1st run of day = 1, 2nd = 2, etc.)
+- Example: `frenchOmelette_20260408_1/`
 
 ---
 
@@ -68,9 +80,15 @@ Example `project/preferences.md`:
 
 ### Lead Agent Responsibilities:
 1. Coordinate all subagents
-2. Run sequential tasks (SVG fetch, route optimize, report gen)
+2. Run sequential tasks (load cached map, route optimize, report gen)
 3. Handle errors and edge cases
 4. Generate final response with all outputs
+
+### Note on Store Map:
+- Store map is **pre-cached** in `templates/store_map_vestal.svg`
+- No browser automation or network calls needed for map fetching
+- White background fill ensures visibility and proper maze pathfinding
+- To refresh cache: use `project/test_scripts/svg_fetcher.py` (standalone script)
 
 ### Subagent Delegation Pattern:
 
@@ -90,9 +108,57 @@ Subagent 4: Search items 16-20
 
 ### Progress Tracking:
 
-Each subagent writes to `templates/progress.txt`:
+**After each task, append to `project/output/progress_<timestamp>.txt`:**
+
+```
+[TIMESTAMP] Task N: <Task Name> - <STATUS>
+Files Generated:
+- [File Name](relative/path/to/file)
+- [File Name](relative/path/to/file)
+```
+
+**Each subagent also writes to `templates/progress.txt`:**
 ```
 [item_name]: [status: pending/searching/found/missing] - [aisle if found]
+```
+
+**Progress file format example:**
+```
+[2026-04-03 12:30:45] Task 1: Project Setup - COMPLETE
+Files Generated:
+- requirements.txt (tools/requirements.txt)
+- Python environment (.venv/)
+
+[2026-04-03 12:31:02] Task 2: Store Locator - COMPLETE
+Files Generated:
+- Store Preference (project/preferences.md)
+- Store Cache (project/.store_cache.json)
+
+[2026-04-03 12:32:15] Task 3: Parallel Item Search - COMPLETE
+Files Generated:
+- Search Results (project/output/search_results_<timestamp>.json)
+- Progress Log (templates/progress.txt)
+
+[2026-04-03 12:33:40] Task 4: SVG Fetcher - COMPLETE
+Files Generated:
+- Store Map SVG (project/output/store_map_<timestamp>.svg)
+
+[2026-04-03 12:34:22] Task 5: Route Optimizer - COMPLETE
+Files Generated:
+- Route Coordinates (project/output/route_coords_<timestamp>.json)
+
+[2026-04-03 12:35:10] Task 6: Report Generator - COMPLETE
+Files Generated:
+- Grocery Report (project/output/grocery_report_<timestamp>.md)
+
+[2026-04-03 12:35:45] Task 7: HTML Map Generator - COMPLETE
+Files Generated:
+- Interactive Map (project/output/route_map_<timestamp>.html)
+
+[2026-04-03 12:36:02] Task 8: Output Summary - COMPLETE
+Files Generated:
+- Route Summary (project/output/output_<timestamp>.md)
+- Route Visualization (project/output/route_viz_<timestamp>.svg)
 ```
 
 ---
@@ -215,14 +281,14 @@ View the interactive map in your browser to see the complete route!
 ## Testing
 
 **Test Case:** Run with query:
-> "show me my target shopping grocery route at Vestal outlet"
+> "show me my target shopping grocery route"
 
-With 15 items in `project/list.md`.
+With items in `project/list.md` (e.g., French omelette: eggs, butter, salt, chives).
 
 **Evaluation Criteria:**
 - ✅ All 4 output files generated correctly
 - ✅ Route is optimal (no aisle cut-through)
-- ✅ Preferences saved to `project/preferences.md`
+- ✅ Store is hardcoded to Binghamton Vestal (ID: 1056)
 - ✅ No errors or crashes
 - ✅ Natural language response includes all key information
 

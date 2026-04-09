@@ -1,0 +1,66 @@
+[
+  {
+    "item": "snacks",
+    "product_name": "RITZ Bits Cheese Sandwich Crackers Lunch Snacks - 8.8oz",
+    "available": true,
+    "aisle": "G33",
+    "price": 4.29,
+    "product_url": "https://www.target.com/p/ritz-bits-cracker-sandwiches-with-cheese-8-8oz/-/A-14920182#lnk=sametab"
+  },
+  {
+    "item": "drinks",
+    "product_name": null,
+    "available": false,
+    "aisle": "N/A",
+    "price": "N/A",
+    "product_url": null
+  },
+  {
+    "item": "party decorations",
+    "product_name": null,
+    "available": false,
+    "aisle": "N/A",
+    "price": "N/A",
+    "product_url": null
+  },
+  {
+    "item": "pop vinyl records",
+    "product_name": null,
+    "available": false,
+    "aisle": "N/A",
+    "price": "N/A",
+    "product_url": null
+  },
+  {
+    "item": "cups",
+    "product_name": "Disposable Red Plastic Cups - 18oz - up&up\u2122",
+    "available": true,
+    "aisle": "A59",
+    "price": 2.89,
+    "product_url": "https://www.target.com/p/disposable-red-plastic-cups-18oz-up-up/-/A-79620967?preselect=14736272#lnk=sametab"
+  },
+  {
+    "item": "paper plates",
+    "product_name": "Dixie Ultra 10 1/16\" Paper Plates",
+    "available": true,
+    "aisle": "A59",
+    "price": 3.89,
+    "product_url": "https://www.target.com/p/dixie-ultra-10-1-16-paper-plates/-/A-79621085?preselect=17424474#lnk=sametab"
+  },
+  {
+    "item": "napkins",
+    "product_name": "Vanity Fair Entertain 3-Ply Napkins - 40ct: Heavy Duty, Solid Pattern, Disposable Dinner Napkins, Paper Material",
+    "available": true,
+    "aisle": "A59",
+    "price": 2.79,
+    "product_url": "https://www.target.com/p/vanity-fair-entertain-3-ply-napkins-40ct/-/A-50614369#lnk=sametab"
+  },
+  {
+    "item": "bluetooth speaker",
+    "product_name": "Portable Bluetooth Speaker - heyday\u2122 S",
+    "available": true,
+    "aisle": "F27",
+    "price": 19.99,
+    "product_url": "https://www.target.com/p/portable-bluetooth-speaker-heyday-s/-/A-95051990?preselect=94246152#lnk=sametab"
+  }
+]
